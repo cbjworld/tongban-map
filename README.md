@@ -2,6 +2,13 @@
 
 전국 읍면동을 선택해 통·행정리·반 경계를 그리고, JSON으로 저장·조회하는 정적 웹 도구입니다.
 
+## 예시 웹사이트
+
+- [지도 뷰어 열기](https://cbjworld.github.io/tongban-map/)
+- [통·리·반 경계 편집기 열기](https://cbjworld.github.io/tongban-map/editor.html)
+
+설치나 API 키 없이 브라우저에서 사용할 수 있습니다. 작성한 경계는 JSON으로 PC에 저장하세요. 예시 사이트에 작업 내용이 저장되거나 다른 사용자에게 공유되지는 않습니다.
+
 ## 실행
 
 ```sh
@@ -66,6 +73,6 @@ python release.py
 
 ## 배포·라이선스
 
-압축을 풀어 정적 호스팅에 폴더 전체를 올릴 수 있습니다. `data/regions` 경로를 유지하세요. 실제 외부 배포는 별도 승인 후 진행합니다.
+압축을 풀어 정적 호스팅에 폴더 전체를 올릴 수 있습니다. `data/regions` 경로를 유지하세요. GitHub Pages에서는 Settings → Pages → Deploy from a branch → `main` / `(root)`로 설정합니다. 예시 웹사이트는 GitHub Pages에서 제공합니다.
 
 앱 코드는 MIT입니다([LICENSE](LICENSE)). 데이터·제3자 코드는 별도 조건을 따릅니다. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [DATA_SOURCES.md](DATA_SOURCES.md)를 함께 배포하세요.
