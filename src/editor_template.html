@@ -107,6 +107,36 @@
     #panel input[type=text], #panel input[type=number], #panel select { font-size:16px; }
     #gisMap { bottom:45vh; }
   }
+  #panel { width:360px; padding:0; border-radius:18px; color:#263746; font-size:13px; box-shadow:0 8px 32px #24374624; }
+  .panelHeader { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:22px 20px; background:#fff; border-bottom:1px solid #e6ecef; }
+  #panel h1 { margin:0; font-size:18px; letter-spacing:-.6px; }
+  .panelHeader a { color:#004c80; font-size:12px; white-space:nowrap; text-decoration:none; }
+  #panel details, #panel .shapeSection { padding:0 20px; border-bottom:1px solid #e6ecef; }
+  #panel summary { cursor:pointer; padding:18px 0; font-weight:700; font-size:14px; }
+  #panel details[open] { padding-bottom:18px; }
+  .regionGrid { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+  .regionGrid > div { min-width:0; }
+  #panel .row { gap:8px; margin-top:10px; }
+  #panel label.fieldLabel { display:block; margin-top:12px; font-size:12px; color:#526674; }
+  #panel button, #panel .fileBtn { min-height:40px; padding:10px 12px; border-color:#dbe3e8; border-radius:9px; font:inherit; background:#f5f8fa; }
+  #panel input[type=text], #panel input[type=number], #panel select { min-height:40px; font:inherit; }
+  #panel .regionSelect { height:42px; border-radius:9px; }
+  #panel :is(button, a, summary, input, select):focus-visible { outline:2px solid #004c80; outline-offset:3px; }
+  #panel button.primary, #panel .modeToggle button.active { background:#004c80; color:#fff; }
+  #panel button.pickActive { background:#c0392b; color:#fff; }
+  #panel .status:empty { display:none; }
+  #panel .status { line-height:1.6; margin-top:10px; }
+  #panel .shapeSection { padding-bottom:18px; }
+  #panel .shapeSection h2 { border:0; font-size:14px; margin:18px 0 12px; padding:0; }
+  #shapeList:empty::after { content:'아직 만든 구역이 없습니다'; display:block; padding:12px 0; color:#617481; }
+  .saveBar { position:sticky; bottom:0; z-index:2; padding:16px 20px; background:#fff; border-top:1px solid #e6ecef; }
+  #panel .saveBar .row { margin:0; }
+  #panel .saveBar button { flex:1; }
+  @media (max-width:600px) {
+    #panel { width:100%; border-radius:18px 18px 0 0; padding:0; max-height:45vh; }
+    .panelHeader { padding:16px 20px; }
+    #panel input[type=text], #panel input[type=number], #panel select { font-size:16px; }
+  }
 </style>
 </head>
 <body>
@@ -115,22 +145,30 @@
 <div id="loading">지도를 준비하는 중입니다…</div>
 
 <div id="panel">
+  <header class="panelHeader">
   <h1 data-unit-text="{unit}·반 경계 편집기">통·반 경계 편집기</h1>
   <a href="index.html">지도 보기</a>
+  </header>
+  <details open id="regionTools"><summary>지역 선택</summary>
+  <div class="regionGrid"><div>
   <label class="fieldLabel" for="unitTypeSelect">구분</label>
   <div class="row"><select id="unitTypeSelect" class="regionSelect"><option value="tong">통·반</option><option value="ri">행정리·반</option></select></div>
-
+  </div><div>
   <label class="fieldLabel" for="sidoSelect">시도</label>
   <div class="row"><select id="sidoSelect" class="regionSelect"></select></div>
+  </div><div>
   <label class="fieldLabel" for="sggSelect">시군구</label>
   <div class="row"><select id="sggSelect" class="regionSelect"></select></div>
+  </div><div>
   <label class="fieldLabel" for="dongSelect">읍면동</label>
   <div class="row"><select id="dongSelect" class="regionSelect"></select></div>
+  </div></div>
   <div id="regionStatus" class="status" aria-live="polite"></div>
-  <label class="fieldLabel" for="dongNameInput">지역 이름 (내보내기 파일명)</label>
+  </details>
+  <details id="fileTools"><summary>파일 불러오기 · 이름</summary>
+  <label class="fieldLabel" for="dongNameInput">저장할 지역 이름</label>
   <div class="row"><input type="text" id="dongNameInput" value="한남동"></div>
 
-  <h2>기존 JSON 불러오기 (이어서 편집)</h2>
   <div class="row">
     <label class="fileBtn" for="loadTongInput" data-unit-text="{unit} 경계 JSON">통 경계 JSON</label>
     <input type="file" id="loadTongInput" accept=".json">
@@ -139,7 +177,8 @@
   </div>
   <div id="loadStatus" class="status"></div>
 
-  <h2>그리기</h2>
+  </details>
+  <details open id="drawTools"><summary>경계 그리기</summary>
   <div class="modeToggle">
     <button id="modeTongBtn" class="active" data-unit-text="{unit} 경계">통 경계</button>
     <button id="modeBanBtn">반 경계</button>
@@ -162,7 +201,8 @@
   </div>
   <div id="drawStatus" class="status"></div>
 
-  <h2>지번 편입 / 이동</h2>
+  </details>
+  <details id="parcelTools"><summary>필지로 편입 · 이동</summary>
   <div class="row"><label class="fileBtn" for="loadParcelsInput">필지 GeoJSON</label><input type="file" id="loadParcelsInput" accept=".json,.geojson"></div>
   <div id="parcelImportStatus" class="status" aria-live="polite"></div>
   <div id="parcelSectionUnavailable" class="hint" style="display:none;">이 지역의 필지 GeoJSON을 불러오세요.</div>
@@ -191,7 +231,8 @@
     <div id="exportParcelTongBanStatus" class="status"></div>
   </div>
 
-  <h2>점 위치 수정</h2>
+  </details>
+  <details id="editTools"><summary>경계 점 수정</summary>
   <div class="row">
     <select id="editTargetSelect" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid #ccc;">
       <option value="">대상을 선택하세요</option>
@@ -206,16 +247,18 @@
   </div>
   <div id="editStatus" class="status"></div>
 
+  </details>
+  <section class="shapeSection">
   <h2><span data-unit-text="현재 {unit} 목록">현재 통 목록</span> <span id="shapeCount" style="color:#999;font-weight:400;"></span></h2>
   <ul id="shapeList"></ul>
 
-  <h2>내보내기</h2>
+  </section>
+  <footer class="saveBar" aria-label="JSON 저장">
   <div class="row">
-    <button id="exportTongBtn" class="primary" data-unit-text="{unit} 경계 JSON">통 경계 JSON</button>
-    <button id="exportBoundaryBtn">외곽선 JSON</button>
+    <button id="exportTongBtn" class="primary" data-unit-text="{unit}·반 저장">통·반 저장</button>
+    <button id="exportBoundaryBtn">외곽선 저장</button>
   </div>
-
-
+  </footer>
 </div>
 
 <script type="text/javascript">
