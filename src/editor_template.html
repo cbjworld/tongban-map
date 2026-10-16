@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=Edge">
+<meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1.0, maximum-scale=3.0, minimum-scale=1.0">
+<title>통·반 경계 편집기</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden; font-family:"Malgun Gothic","Apple SD Gothic Neo","NanumGothic",sans-serif; }
+  #gisMap { position:absolute; top:0; left:0; right:0; bottom:0; }
+
+  #panel {
+    position:absolute; top:12px; left:12px; z-index:1000;
+    background:#fff; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,.18);
+    padding:14px 16px; width:300px; font-size:12px; color:#333;
+    max-height:calc(100vh - 24px); overflow-y:auto; overscroll-behavior:contain;
+  }
+  #panel h1 { font-size:15px; margin:0 0 8px; color:#222; }
+  #panel h2 { font-size:12.5px; margin:14px 0 4px; color:#222; border-top:1px solid #eee; padding-top:10px; }
+  #panel .hint { color:#888; font-size:10.5px; line-height:1.5; margin-top:4px; }
+  #panel .row { display:flex; gap:6px; margin-top:6px; align-items:center; flex-wrap:wrap; }
+  #panel label.fieldLabel { font-size:11px; color:#555; width:100%; }
+  #panel .regionSelect {
+    appearance:none; width:100%; min-width:0; height:38px; padding:8px 34px 8px 11px;
+    font:inherit; font-size:12px; color:#263746; background-color:#f8fafc;
+    border:1px solid #d6dfe6; border-radius:7px; cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%235b7083' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center;
+  }
+  #panel .regionSelect:hover { border-color:#8fa8ba; background-color:#fff; }
+  #panel .regionSelect:focus-visible { outline:2px solid #004c80; outline-offset:2px; }
+  #panel .regionSelect:disabled { cursor:default; opacity:.55; }
+  #panel .row:has(.regionSelect) { margin-bottom:9px; }
+  #panel input[type=text], #panel input[type=number] {
+    font-size:12px; padding:6px 8px; border-radius:6px; border:1px solid #ccc; flex:1; min-width:0;
+  }
+  #panel button {
+    font-size:11.5px; padding:7px 10px; border-radius:6px; border:1px solid #ccc;
+    background:#f7f7f7; cursor:pointer;
+  }
+  #panel button:hover { background:#eee; }
+  #panel button.primary { background:#004c80; color:#fff; border-color:#004c80; }
+  #panel button.primary:hover { background:#003a63; }
+  #panel button:disabled { opacity:.5; cursor:default; }
+  #panel .fileBtn {
+    display:inline-block; background:#f7f7f7; border:1px solid #ccc; border-radius:6px;
+    padding:7px 10px; cursor:pointer; font-size:11.5px;
+  }
+  #panel .fileBtn:hover { background:#eee; }
+  input[type=file] { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  #panel .row:has(input[type=file]:focus-visible) .fileBtn { outline:2px solid #004c80; }
+  .status { margin-top:6px; font-size:11px; }
+  .status.ok { color:#0a7a2f; }
+  .status.warn { color:#c0392b; }
+  #shapeList { list-style:none; margin:6px 0 0; padding:0; max-height:160px; overflow-y:auto; }
+  #shapeList li { display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid #f2f2f2; }
+  #shapeList li .swatch { width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
+  #shapeList li .act { margin-left:auto; color:#004c80; cursor:pointer; font-size:11px; }
+  #shapeList li .del { color:#c0392b; cursor:pointer; font-size:11px; }
+  .modeToggle { display:flex; gap:6px; margin-top:6px; }
+  .modeToggle button { flex:1; }
+  .modeToggle button.active { background:#004c80; color:#fff; border-color:#004c80; }
+  #panel button.pickActive { background:#c0392b; color:#fff; border-color:#c0392b; }
+
+  .tong-label {
+    font-family:"NanumGothic","Malgun Gothic","sans-serif";
+    text-align:center; color:#fff; font-size:11px; font-weight:700;
+    background-color:rgba(0,76,128,.92); border-radius:8px; padding:2px 6px;
+    white-space:nowrap; transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .ban-label {
+    font-family:"NanumGothic","Malgun Gothic","sans-serif";
+    text-align:center; color:#333; font-size:10px; font-weight:700;
+    background-color:rgba(255,255,255,.9); border:1px solid #999; border-radius:6px; padding:1px 5px;
+    white-space:nowrap; transform:translate(-50%,-50%); box-shadow:0 1px 2px rgba(0,0,0,.2);
+  }
+  #shapeList li.banItem { padding-left:16px; }
+  #shapeList li.banItem .swatch { border:1px dashed #666; background:transparent !important; }
+  #loading {
+    position:absolute; inset:0; background:rgba(255,255,255,.85); z-index:1100;
+    display:flex; align-items:center; justify-content:center; font-size:14px; color:#004c80;
+  }
+  #pwGate {
+    position: fixed; inset: 0; z-index: 9999; background: #1b2430;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #pwGate .pwCard {
+    background: #fff; border-radius: 12px; padding: 32px 28px; width: 280px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center;
+  }
+  #pwGate h2 { margin: 0 0 6px; font-size: 17px; }
+  #pwGate p { margin: 0 0 16px; color: #777; font-size: 13px; }
+  #pwGate input {
+    width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 6px;
+    border: 1px solid #ccc; font-size: 14px; margin-bottom: 10px;
+  }
+  #pwGate button {
+    width: 100%; padding: 9px 10px; border-radius: 6px; border: none;
+    background: #4b6ebe; color: #fff; font-size: 14px; cursor: pointer;
+  }
+  #pwGate button:hover { background: #3d5aa0; }
+  #pwGate .pwError { color: #d33; font-size: 12px; margin-top: 8px; min-height: 14px; }
+  @media (max-width:600px) {
+    #panel { top:auto; bottom:0; left:0; width:100%; max-height:45vh; border-radius:12px 12px 0 0; padding:12px 16px; }
+    #panel button, #panel .fileBtn { min-height:40px; }
+    #panel input[type=text], #panel input[type=number], #panel select { font-size:16px; }
+    #gisMap { bottom:45vh; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gisMap"></div>
+<div id="loading">지도를 준비하는 중입니다…</div>
+
+<div id="panel">
+  <h1 data-unit-text="{unit}·반 경계 편집기">통·반 경계 편집기</h1>
+  <a href="index.html">지도 보기</a>
+  <label class="fieldLabel" for="unitTypeSelect">구분</label>
+  <div class="row"><select id="unitTypeSelect" class="regionSelect"><option value="tong">통·반</option><option value="ri">행정리·반</option></select></div>
+
+  <label class="fieldLabel" for="sidoSelect">시도</label>
+  <div class="row"><select id="sidoSelect" class="regionSelect"></select></div>
+  <label class="fieldLabel" for="sggSelect">시군구</label>
+  <div class="row"><select id="sggSelect" class="regionSelect"></select></div>
+  <label class="fieldLabel" for="dongSelect">읍면동</label>
+  <div class="row"><select id="dongSelect" class="regionSelect"></select></div>
+  <div id="regionStatus" class="status" aria-live="polite"></div>
+  <label class="fieldLabel" for="dongNameInput">지역 이름 (내보내기 파일명)</label>
+  <div class="row"><input type="text" id="dongNameInput" value="한남동"></div>
+
+  <h2>기존 JSON 불러오기 (이어서 편집)</h2>
+  <div class="row">
+    <label class="fileBtn" for="loadTongInput" data-unit-text="{unit} 경계 JSON">통 경계 JSON</label>
+    <input type="file" id="loadTongInput" accept=".json">
+    <label class="fileBtn" for="loadBoundaryInput">외곽선 JSON</label>
+    <input type="file" id="loadBoundaryInput" accept=".json,.geojson">
+  </div>
+  <div id="loadStatus" class="status"></div>
+
+  <h2>그리기</h2>
+  <div class="modeToggle">
+    <button id="modeTongBtn" class="active" data-unit-text="{unit} 경계">통 경계</button>
+    <button id="modeBanBtn">반 경계</button>
+    <button id="modeBoundaryBtn">지역 외곽선</button>
+  </div>
+  <div class="row" id="tongFields">
+    <input type="number" id="tongNumInput" placeholder="통 번호" min="1" style="max-width:90px;">
+  </div>
+  <div class="row" id="banFields" style="display:none;">
+    <select id="banParentTongSelect" style="max-width:110px;padding:6px 8px;border-radius:6px;border:1px solid #ccc;">
+      <option value="">통 선택</option>
+    </select>
+    <input type="number" id="banNumInput" placeholder="반 번호" min="1" style="max-width:90px;">
+  </div>
+  <div class="row">
+    <button id="drawStartBtn">그리기 시작</button>
+    <button id="drawUndoBtn" disabled>점 취소</button>
+    <button id="drawFinishBtn" class="primary" disabled>완성</button>
+    <button id="drawCancelBtn" disabled>취소</button>
+  </div>
+  <div id="drawStatus" class="status"></div>
+
+  <h2>지번 편입 / 이동</h2>
+  <div class="row"><label class="fileBtn" for="loadParcelsInput">필지 GeoJSON</label><input type="file" id="loadParcelsInput" accept=".json,.geojson"></div>
+  <div id="parcelImportStatus" class="status" aria-live="polite"></div>
+  <div id="parcelSectionUnavailable" class="hint" style="display:none;">이 지역의 필지 GeoJSON을 불러오세요.</div>
+  <div id="parcelSectionAvailable" style="display:none;">
+    <div class="row">
+      <input type="text" id="parcelSearchInput" list="parcelDatalist" placeholder="지번 입력 (예: 771-19)" style="flex:1;">
+      <datalist id="parcelDatalist"></datalist>
+      <button id="parcelFindBtn">찾기</button>
+    </div>
+    <div class="row">
+      <button id="parcelPickBtn" style="flex:1;">지도에서 지번 선택</button>
+    </div>
+    <div id="parcelFindStatus" class="status"></div>
+    <div class="row">
+      <input type="number" id="assignTongInput" placeholder="편입할 통 번호" min="1" style="max-width:110px;">
+      <input type="number" id="assignBanInput" placeholder="반 번호 (선택)" min="1" style="max-width:110px;">
+    </div>
+    <div class="row">
+      <button id="assignParcelBtn" class="primary">이 지번을 편입/이동</button>
+    </div>
+    <div id="assignStatus" class="status"></div>
+
+    <div class="row">
+      <button id="exportParcelTongBanBtn" style="flex:1;" data-unit-text="지번별 {unit}/반 CSV">지번별 통/반 CSV</button>
+    </div>
+    <div id="exportParcelTongBanStatus" class="status"></div>
+  </div>
+
+  <h2>점 위치 수정</h2>
+  <div class="row">
+    <select id="editTargetSelect" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid #ccc;">
+      <option value="">대상을 선택하세요</option>
+    </select>
+  </div>
+  <div class="row">
+    <button id="editStartBtn">편집 시작</button>
+    <button id="editStopBtn" disabled>편집 종료</button>
+  </div>
+  <div class="row">
+    <button id="deletePointBtn" disabled>선택한 점 삭제</button>
+  </div>
+  <div id="editStatus" class="status"></div>
+
+  <h2><span data-unit-text="현재 {unit} 목록">현재 통 목록</span> <span id="shapeCount" style="color:#999;font-weight:400;"></span></h2>
+  <ul id="shapeList"></ul>
+
+  <h2>내보내기</h2>
+  <div class="row">
+    <button id="exportTongBtn" class="primary" data-unit-text="{unit} 경계 JSON">통 경계 JSON</button>
+    <button id="exportBoundaryBtn">외곽선 JSON</button>
+  </div>
+
+
+</div>
+
+<script type="text/javascript">
+/* __TURF_JS__ */
+</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="map.js"></script>
+<script src="data-format.js"></script>
+
+<script type="text/javascript">
+//<![CDATA[
+
+
+/* ---------- 동별 지번(필지) 데이터: 있는 동만 "지번 편입/이동" 기능을 쓸 수 있다 ---------- */
+var PARCELS_BY_DONG = {};
+
+var oMap;
+var tongShapes = {};      // 통번호 -> { rings: [ring,...], bans: [n,...], banShapes: { 반번호 -> {rings:[ring,...]} } }
+var boundaryRing = null;  // [[lng,lat],...] or null
+
+var tongPolygons = [];    // 화면에 그려진 통 폴리곤들
+var tongLabels = [];
+var banPolygons = [];     // 화면에 그려진 반 폴리곤들 (통 안쪽 점선 경계)
+var banLabels = [];
+var boundaryLine = null;
+
+var mode = 'tong';        // 'tong' | 'ban' | 'boundary'
+var isDrawing = false;
+var isPickingParcel = false; // '지도에서 지번 선택' 모드
+var drawPoints = [];
+var drawPreviewLine = null;
+var drawPreviewDots = [];
+
+/* 점 위치 수정 (기존 경계의 꼭짓점을 드래그로 옮기거나, 점을 추가/삭제하기) */
+var editingTarget = null;         // null | {kind:'boundary'} | {kind:'tong', tongNum:N} | {kind:'ban', tongNum:N, banNum:M}
+var editVertexMarkers = [];       // [{marker, partIndex, vertexIndex}, ...]
+var editMidpointMarkers = [];     // [{marker, partIndex, afterIndex}, ...] (점 추가용 중간점)
+var selectedVertex = null;        // {partIndex, vertexIndex} | null
+var vertexMarkerImg = null;
+var vertexMarkerImgSelected = null;
+var midpointMarkerImg = null;
+
+var colorCache = {};
+function tongColor(t) {
+  if (colorCache[t]) return colorCache[t];
+  var hue = (t * 47) % 360;
+  var c = { stroke: 'hsl(' + hue + ', 62%, 34%)', fill: 'hsl(' + hue + ', 70%, 55%)' };
+  colorCache[t] = c;
+  return c;
+}
+
+/* ---------- 경계 자르기 / 겹침 정리 (turf.js) ----------
+   - 새로 그린 통 경계가 동 외곽선을 벗어나면 외곽선 안쪽으로 잘라낸다.
+   - 새로 그린 통 경계가 다른 통과 겹치면, 겹친 부분은 방금 그린 통 것으로 치고
+     기존 통들에서는 그 부분을 도려낸다 (최근에 그린 선이 우선한다).
+   기하 연산이 실패하면(자기교차 등) 원래 동작(자르기/도려내기 없이 그대로 추가)으로
+   조용히 되돌아간다. -------------------------------------------------------- */
+function ringToTurfPoly(ring) {
+  return turf.polygon([ring]);
+}
+
+function geometryToRings(geom) {
+  if (!geom) return [];
+  var polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+  return polygons.flatMap(function (polygon) {
+    if (polygon.length === 1) return [polygon[0]];
+    return turf.tesselate(turf.polygon(polygon)).features.map(function (feature) { return feature.geometry.coordinates[0]; });
+  });
+  return [];
+}
+
+// feature(turf Polygon/MultiPolygon Feature) 를 clipFeature 안쪽으로 자른다. 범용 버전.
+function clipFeatureToFeature(feature, clipFeature) {
+  if (!clipFeature) return geometryToRings(feature.geometry);
+  try {
+    var result = turf.intersect(turf.featureCollection([feature, clipFeature]));
+    if (!result) return [];
+    return geometryToRings(result.geometry);
+  } catch (e) {
+    return geometryToRings(feature.geometry); // 연산 실패 시 자르지 않고 원래 도형 유지
+  }
+}
+
+// ring 을 clipFeature 안쪽으로 자른다.
+function clipRingToFeature(ring, clipFeature) {
+  return clipFeatureToFeature(ringToTurfPoly(ring), clipFeature);
+}
+
+function clipRingToBoundary(ring) {
+  if (boundaryFeature) return clipRingToFeature(ring, boundaryFeature);
+  if (!boundaryRing || boundaryRing.length < 4) return [ring];
+  return clipRingToFeature(ring, ringToTurfPoly(boundaryRing));
+}
+
+function unionOfRings(rings) {
+  if (!rings.length) return null;
+  var u = ringToTurfPoly(rings[0]);
+  for (var i = 1; i < rings.length; i++) {
+    try { u = turf.union(turf.featureCollection([u, ringToTurfPoly(rings[i])])); }
+    catch (e) { /* 실패한 조각은 무시하고 나머지만 합친다 */ }
+  }
+  return u;
+}
+
+function subtractFromRing(ring, subtractPoly) {
+  if (!subtractPoly) return [ring];
+  try {
+    var diff = turf.difference(turf.featureCollection([ringToTurfPoly(ring), subtractPoly]));
+    if (!diff) return []; // 완전히 덮여서 사라짐
+    return geometryToRings(diff.geometry);
+  } catch (e) {
+    return [ring]; // 연산 실패 시 그대로 유지 (겹침 정리는 포기)
+  }
+}
+
+function ringCenter(ring) {
+  var sx = 0, sy = 0;
+  ring.forEach(function (p) { sx += p[0]; sy += p[1]; });
+  return [sx / ring.length, sy / ring.length];
+}
+
+/* ---------- 지번(필지) 편입 / 이동 ----------
+   경계를 손으로 그리기 힘들 때, 필지(지번) 하나를 골라 그 모양 그대로 특정 통/반에 넣는다.
+   먼저 그 지번이 있던 자리(다른 모든 통·반)에서 빼내고(이동), 그 다음 목표 통/반에 더한다. */
+function currentDongParcels() {
+  return activeRegion ? PARCELS_BY_DONG[activeRegion.fullName] || null : null;
+}
+
+// 지번 표기의 핵심만 비교한다: 공백 제거 + 끝에 붙는 지목 글자(대/도/전/임 등, 한글) 제거.
+// "771-19대", "771-19 대", "771-19" 모두 같은 걸로 취급해서 사용자가 지목을 몰라도 찾을 수 있게 한다.
+function jibunCore(s) {
+  return (s || '').replace(/\s+/g, '').replace(/[가-힣]+$/, '');
+}
+
+function parcelToTurfFeature(parcel) {
+  // parcel.g = 여러 조각(part)의 배열, 각 조각 = [바깥고리, 구멍1, 구멍2, ...]
+  if (parcel.g.length === 1) return turf.polygon(parcel.g[0]);
+  return turf.multiPolygon(parcel.g);
+}
+
+function removeParcelFromEverywhere(parcelFeature) {
+  Object.keys(tongShapes).map(Number).forEach(function (tongNum) {
+    var shape = tongShapes[tongNum];
+    var remaining = [];
+    shape.rings.forEach(function (ring) { remaining = remaining.concat(subtractFromRing(ring, parcelFeature)); });
+    if (!remaining.length) { delete tongShapes[tongNum]; return; }
+    shape.rings = remaining;
+    if (shape.banShapes) {
+      Object.keys(shape.banShapes).map(Number).forEach(function (banNum) {
+        var banShape = shape.banShapes[banNum];
+        var bRemaining = [];
+        banShape.rings.forEach(function (ring) { bRemaining = bRemaining.concat(subtractFromRing(ring, parcelFeature)); });
+        if (bRemaining.length) banShape.rings = bRemaining;
+        else delete shape.banShapes[banNum];
+      });
+    }
+  });
+}
+
+// 기존 링들과 새 링들을 합친다. 서로 맞닿아 있으면(인접) turf.union 으로 하나의 경계로 합쳐서
+// 내부에 남는 경계선을 지운다. 맞닿지 않은 조각은 그대로 별개의 링으로 남는다.
+function mergeRingsAdjacent(existingRings, newRings) {
+  var all = (existingRings || []).concat(newRings || []);
+  if (!all.length) return all;
+  var merged = unionOfRings(all);
+  return merged ? geometryToRings(merged.geometry) : all;
+}
+
+function addParcelToTarget(parcelFeature, tongNum, banNum) {
+  var clippedRings = boundaryFeature ? clipFeatureToFeature(parcelFeature, boundaryFeature) : (boundaryRing && boundaryRing.length >= 4)
+    ? clipFeatureToFeature(parcelFeature, ringToTurfPoly(boundaryRing))
+    : geometryToRings(parcelFeature.geometry);
+  if (!clippedRings.length) return { ok: false, reason: '동 외곽선 밖이라 반영되지 않았습니다.' };
+
+  if (!tongShapes[tongNum]) tongShapes[tongNum] = { rings: [], bans: [] };
+  var shape = tongShapes[tongNum];
+  shape.rings = mergeRingsAdjacent(shape.rings, clippedRings);
+
+  if (banNum != null && !isNaN(banNum)) {
+    if (!shape.banShapes) shape.banShapes = {};
+    var tongUnion = unionOfRings(shape.rings);
+    var banRings = clipFeatureToFeature(parcelFeature, tongUnion);
+    if (banRings.length) {
+      var banUnion = unionOfRings(banRings);
+      Object.keys(shape.banShapes).map(Number).forEach(function (otherBan) {
+        if (otherBan === banNum) return;
+        var other = shape.banShapes[otherBan];
+        var remaining = [];
+        other.rings.forEach(function (r) { remaining = remaining.concat(subtractFromRing(r, banUnion)); });
+        if (remaining.length) other.rings = remaining;
+        else delete shape.banShapes[otherBan];
+      });
+      if (!shape.banShapes[banNum]) shape.banShapes[banNum] = { rings: [] };
+      shape.banShapes[banNum].rings = mergeRingsAdjacent(shape.banShapes[banNum].rings, banRings);
+      if (shape.bans.indexOf(banNum) === -1) { shape.bans.push(banNum); shape.bans.sort(function (a, b) { return a - b; }); }
+    }
+  }
+  return { ok: true };
+}
+
+function findParcelOwner(parcelFeature) {
+  var centroid = turf.centroid(parcelFeature);
+  var foundTong = null, foundBan = null;
+  Object.keys(tongShapes).map(Number).some(function (tongNum) {
+    var shape = tongShapes[tongNum];
+    var inTong = shape.rings.some(function (ring) {
+      try { return turf.booleanPointInPolygon(centroid, ringToTurfPoly(ring)); } catch (e) { return false; }
+    });
+    if (!inTong) return false;
+    foundTong = tongNum;
+    if (shape.banShapes) {
+      Object.keys(shape.banShapes).map(Number).some(function (banNum) {
+        var bs = shape.banShapes[banNum];
+        var inBan = bs.rings.some(function (ring) {
+          try { return turf.booleanPointInPolygon(centroid, ringToTurfPoly(ring)); } catch (e) { return false; }
+        });
+        if (inBan) foundBan = banNum;
+        return inBan;
+      });
+    }
+    return true;
+  });
+  return { tongNum: foundTong, banNum: foundBan };
+}
+
+var lastFoundParcel = null; // {j, feature}
+var parcelHighlightPolygon = null; // 찾은/선택한 지번의 경계를 지도에 표시하는 오버레이
+
+function clearParcelHighlight() {
+  if (parcelHighlightPolygon) { parcelHighlightPolygon.remove(); parcelHighlightPolygon = null; }
+}
+
+function renderParcelHighlight() {
+  clearParcelHighlight();
+  if (!lastFoundParcel) return;
+  var rings = geometryToRings(lastFoundParcel.feature.geometry);
+  if (!rings.length) return;
+  var flatPaths = rings.map(function (ring) {
+    return ring.map(function (p) { return L.latLng(p[1], p[0]); });
+  });
+  parcelHighlightPolygon = mapPolygon({
+    map: oMap, path: flatPaths, strokeWeight: 3, strokeColor: '#ff6d00',
+    strokeOpacity: 1, fillColor: '#ff6d00', fillOpacity: 0.35, zIndex: 20
+  });
+}
+
+var unassignedParcelPolygons = [];
+
+function clearUnassignedParcelOutlines() {
+  unassignedParcelPolygons.forEach(function (p) { p.remove(); });
+  unassignedParcelPolygons = [];
+}
+
+// 아직 어떤 통에도 속하지 않은 필지들을 찾는다. 필지의 근사 중심점이 어느 통의 링 안에도
+// 들어가지 않으면 미배정으로 본다 (전체 통을 하나로 union 하지 않고 통별 점-폴리곤 판정을
+// 조기 종료(.some())로 돌려서, 통이 많아도 5천개가 넘는 필지에서 빠르게 계산되게 한다).
+function computeUnassignedParcels() {
+  var parcels = currentDongParcels();
+  if (!parcels) return [];
+  var tongNums = Object.keys(tongShapes).map(Number);
+  if (!tongNums.length) return parcels; // 통이 하나도 없으면 전부 미배정
+
+  var tongRingPolys = [];
+  tongNums.forEach(function (t) {
+    tongShapes[t].rings.forEach(function (ring) {
+      try { tongRingPolys.push(ringToTurfPoly(ring)); } catch (e) {}
+    });
+  });
+
+  return parcels.filter(function (p) {
+    var c = ringCenter(p.g[0][0]); // [lng,lat] 근사 중심점
+    return !tongRingPolys.some(function (poly) {
+      try { return turf.booleanPointInPolygon(c, poly); } catch (e) { return false; }
+    });
+  });
+}
+
+function renderUnassignedParcelOutlines() {
+  clearUnassignedParcelOutlines();
+  var unassigned = computeUnassignedParcels();
+  unassigned.forEach(function (p) {
+    var flatPaths = p.g.map(function (part) {
+      return part[0].map(function (pt) { return L.latLng(pt[1], pt[0]); });
+    });
+    var poly = mapPolygon({
+      map: oMap, path: flatPaths, strokeWeight: 1, strokeColor: '#e74c3c',
+      strokeOpacity: 0.7, strokeStyle: 'shortdash', fillColor: '#e74c3c', fillOpacity: 0.08, zIndex: 2
+    });
+    unassignedParcelPolygons.push(poly);
+  });
+  setParcelFindStatus('지도에서 필지를 클릭하세요. (미배정 필지 ' + unassigned.length + '개를 빨간 점선으로 표시했어요)', 'ok');
+}
+
+function setParcelFindStatus(html, cls) {
+  var el = document.getElementById('parcelFindStatus');
+  el.className = 'status' + (cls ? ' ' + cls : '');
+  el.textContent = html;
+}
+
+function setAssignStatus(html, cls) {
+  var el = document.getElementById('assignStatus');
+  el.className = 'status' + (cls ? ' ' + cls : '');
+  el.textContent = html;
+}
+
+function populateParcelSection() {
+  var parcels = currentDongParcels();
+  var available = document.getElementById('parcelSectionAvailable');
+  var unavailable = document.getElementById('parcelSectionUnavailable');
+  lastFoundParcel = null;
+  document.getElementById('parcelDatalist').replaceChildren();
+  clearParcelHighlight();
+  clearUnassignedParcelOutlines();
+  isPickingParcel = false;
+  setParcelPickButtonState();
+  setParcelFindStatus(''); setAssignStatus('');
+  if (!parcels) {
+    available.style.display = 'none';
+    unavailable.style.display = 'block';
+    return;
+  }
+  available.style.display = 'block';
+  unavailable.style.display = 'none';
+  var datalist = document.getElementById('parcelDatalist');
+  datalist.innerHTML = '';
+  parcels.forEach(function (p) {
+    var opt = document.createElement('option');
+    opt.value = p.j;
+    datalist.appendChild(opt);
+  });
+}
+
+function findSelectedParcel() {
+  var parcels = currentDongParcels();
+  if (!parcels) return;
+  var jibun = document.getElementById('parcelSearchInput').value.trim();
+  if (!jibun) { setParcelFindStatus('지번을 입력해주세요.', 'warn'); return; }
+  var core = jibunCore(jibun);
+  var matches = parcels.filter(function (p) { return jibunCore(p.j) === core; });
+  if (matches.length > 1) { lastFoundParcel = null; clearParcelHighlight(); setParcelFindStatus('같은 지번이 여러 개입니다. PNU/법정동·리명이 포함된 자료를 사용해주세요.', 'warn'); return; }
+  var parcel = matches[0];
+  if (!parcel) {
+    lastFoundParcel = null;
+    clearParcelHighlight();
+    setParcelFindStatus('그 지번을 찾지 못했습니다: ' + jibun, 'warn');
+    return;
+  }
+  var feature = parcelToTurfFeature(parcel);
+  lastFoundParcel = { j: parcel.j, feature: feature };
+  renderParcelHighlight();
+  document.getElementById('parcelSearchInput').value = parcel.j;
+  var owner = findParcelOwner(feature);
+  if (owner.tongNum == null) {
+    setParcelFindStatus(parcel.j + ' — 아직 어디에도 속하지 않았습니다.', 'ok');
+  } else {
+    setParcelFindStatus(parcel.j + ' — 현재 ' + owner.tongNum + unitLabel() + '' + (owner.banNum != null ? ' ' + owner.banNum + '반' : '') + '에 속해 있습니다.', 'ok');
+    document.getElementById('assignTongInput').value = owner.tongNum;
+    if (owner.banNum != null) document.getElementById('assignBanInput').value = owner.banNum;
+  }
+}
+
+// 지도 클릭 좌표(lng,lat)를 포함하는 필지를 찾는다. 먼저 필지 테두리 상자로 빠르게 걸러내고,
+// 그 후보에만 정확한 점-폴리곤 판정(turf)을 돌려서 5천개가 넘는 필지에서도 즉시 찾을 수 있게 한다.
+function findParcelAtPoint(lng, lat) {
+  var parcels = currentDongParcels();
+  if (!parcels) return null;
+  for (var i = 0; i < parcels.length; i++) {
+    var p = parcels[i];
+    var ext = p.g.flatMap(function (polygon) { return polygon[0]; });
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (var j = 0; j < ext.length; j++) {
+      var pt = ext[j];
+      if (pt[0] < minX) minX = pt[0];
+      if (pt[0] > maxX) maxX = pt[0];
+      if (pt[1] < minY) minY = pt[1];
+      if (pt[1] > maxY) maxY = pt[1];
+    }
+    if (lng < minX || lng > maxX || lat < minY || lat > maxY) continue;
+    try {
+      var feature = parcelToTurfFeature(p);
+      if (turf.booleanPointInPolygon([lng, lat], feature)) return p;
+    } catch (e) { /* 이 필지는 건너뛴다 */ }
+  }
+  return null;
+}
+
+function setParcelPickButtonState() {
+  var btn = document.getElementById('parcelPickBtn');
+  btn.classList.toggle('pickActive', isPickingParcel);
+  btn.textContent = isPickingParcel ? '지도 클릭 대기 중… (다시 눌러 종료)' : '지도에서 지번 선택';
+}
+
+function togglePickMode() {
+  if (!isPickingParcel && (isDrawing || editingTarget)) {
+    setParcelFindStatus('그리기/점 편집을 먼저 끝내거나 취소해주세요.', 'warn');
+    return;
+  }
+  isPickingParcel = !isPickingParcel;
+  setParcelPickButtonState();
+  if (isPickingParcel) renderUnassignedParcelOutlines();
+  else clearUnassignedParcelOutlines();
+}
+
+function handleParcelPickClick(mouseEvent) {
+  var lng = mouseEvent.latlng.lng, lat = mouseEvent.latlng.lat;
+  var parcel = findParcelAtPoint(lng, lat);
+  if (!parcel) { setParcelFindStatus('클릭한 위치에서 필지를 찾지 못했습니다.', 'warn'); return; }
+  document.getElementById('parcelSearchInput').value = parcel.j;
+  findSelectedParcel();
+}
+
+function assignSelectedParcel() {
+  var jibun = document.getElementById('parcelSearchInput').value.trim();
+  if (!lastFoundParcel || jibunCore(lastFoundParcel.j) !== jibunCore(jibun)) {
+    findSelectedParcel();
+    if (!lastFoundParcel || jibunCore(lastFoundParcel.j) !== jibunCore(jibun)) return; // 찾기에 실패하면 중단
+  }
+  var tongNum = Number(document.getElementById('assignTongInput').value);
+  if (!Number.isInteger(tongNum) || tongNum < 1 || tongNum > 999999) { setAssignStatus('편입할 ' + unitLabel() + ' 번호를 입력해주세요.', 'warn'); return; }
+  var banRaw = document.getElementById('assignBanInput').value.trim();
+  var banNum = banRaw ? Number(banRaw) : null;
+  if (banRaw && (!Number.isInteger(banNum) || banNum < 1 || banNum > 999999)) { setAssignStatus('반 번호를 확인해주세요.', 'warn'); return; }
+  var clipped = boundaryFeature || (boundaryRing && ringToTurfPoly(boundaryRing));
+  if (clipped && !turf.booleanIntersects(lastFoundParcel.feature, clipped)) { setAssignStatus('지역 외곽선 밖의 필지입니다.', 'warn'); return; }
+  var previousShapes = JSON.parse(JSON.stringify(tongShapes));
+  removeParcelFromEverywhere(lastFoundParcel.feature);
+  var result = addParcelToTarget(lastFoundParcel.feature, tongNum, banNum);
+  renderAll();
+  if (!result.ok) { tongShapes = previousShapes; renderAll(); setAssignStatus(result.reason, 'warn'); return; }
+  setAssignStatus(lastFoundParcel.j + ' 지번을 ' + tongNum + unitLabel() + '' + (banNum != null ? ' ' + banNum + '반' : '') + '으로 편입했습니다.', 'ok');
+  if (isPickingParcel) renderUnassignedParcelOutlines();
+}
+
+function clearMapLayers() {
+  tongPolygons.forEach(function (p) { p.remove(); });
+  tongPolygons = [];
+  tongLabels.forEach(function (l) { l.remove(); });
+  tongLabels = [];
+  banPolygons.forEach(function (p) { p.remove(); });
+  banPolygons = [];
+  banLabels.forEach(function (l) { l.remove(); });
+  banLabels = [];
+  if (boundaryLine) { boundaryLine.remove(); boundaryLine = null; }
+}
+
+function renderAll() {
+  clearMapLayers();
+
+  if (boundaryFeature) {
+    boundaryLine = L.geoJSON(boundaryFeature, { interactive: false, style: { color: '#4b6ebe', weight: 4, fill: false } }).addTo(oMap);
+  }
+  if (boundaryRing && boundaryRing.length) {
+    var path = boundaryRing.map(function (p) { return L.latLng(p[1], p[0]); });
+    boundaryLine = mapPolyline({
+      map: oMap, path: path, strokeWeight: 4, strokeColor: '#4b6ebe',
+      strokeOpacity: 0.9, strokeStyle: 'solid', zIndex: 10
+    });
+  }
+
+  Object.keys(tongShapes).map(Number).sort(function (a, b) { return a - b; }).forEach(function (tongNum) {
+    var shape = tongShapes[tongNum];
+    var colors = tongColor(tongNum);
+    var flatPaths = shape.rings.map(function (ring) {
+      return ring.map(function (p) { return L.latLng(p[1], p[0]); });
+    });
+    var polygon = mapPolygon({
+      map: oMap, path: flatPaths, strokeWeight: 2, strokeColor: colors.stroke,
+      strokeOpacity: 0.9, fillColor: colors.fill, fillOpacity: 0.35, zIndex: 3
+    });
+    tongPolygons.push(polygon);
+
+    var center = ringCenter(shape.rings[0]);
+    var label = mapLabel({
+      position: L.latLng(center[1], center[0]),
+      content: '<div class="tong-label">' + escapeHtml(unitName(tongNum)) + '</div>',
+      zIndex: 5
+    });
+    label.addTo(oMap);
+    tongLabels.push(label);
+
+    if (shape.banShapes) {
+      Object.keys(shape.banShapes).map(Number).sort(function (a, b) { return a - b; }).forEach(function (banNum) {
+        var banShape = shape.banShapes[banNum];
+        if (!banShape.rings.length) return;
+        var banFlatPaths = banShape.rings.map(function (ring) {
+          return ring.map(function (p) { return L.latLng(p[1], p[0]); });
+        });
+        var banPolygon = mapPolygon({
+          map: oMap, path: banFlatPaths, strokeWeight: 1.5, strokeColor: '#222',
+          strokeOpacity: 0.85, strokeStyle: 'shortdash', fillColor: '#000', fillOpacity: 0, zIndex: 4
+        });
+        banPolygons.push(banPolygon);
+
+        var banCenter = ringCenter(banShape.rings[0]);
+        var banLabel = mapLabel({
+          position: L.latLng(banCenter[1], banCenter[0]),
+          content: '<div class="ban-label">' + tongNum + '-' + banNum + '반</div>',
+          zIndex: 6
+        });
+        banLabel.addTo(oMap);
+        banLabels.push(banLabel);
+      });
+    }
+  });
+
+  refreshShapeList();
+  refreshEditTargetOptions();
+  refreshBanParentTongOptions();
+  if (editingTarget) renderVertexMarkers(); // 편집 중이면 다시 그린 뒤에도 점들을 유지한다
+}
+
+function refreshShapeList() {
+  var ul = document.getElementById('shapeList');
+  ul.innerHTML = '';
+  var keys = Object.keys(tongShapes).map(Number).sort(function (a, b) { return a - b; });
+  document.getElementById('shapeCount').textContent = '(' + keys.length + '개)';
+  keys.forEach(function (tongNum) {
+    var shape = tongShapes[tongNum];
+    var li = document.createElement('li');
+    var swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = tongColor(tongNum).fill;
+    var label = document.createElement('span');
+    label.textContent = unitName(tongNum) + ' (조각 ' + shape.rings.length + '개)';
+    var chiefInput = document.createElement('input');
+    chiefInput.type = 'text';
+    chiefInput.value = shape.name || '';
+    chiefInput.placeholder = unitLabel() + ' 이름';
+    chiefInput.setAttribute('aria-label', tongNum + unitLabel() + ' 이름');
+    chiefInput.maxLength = 100;
+    chiefInput.style.cssText = 'width:70px;font-size:11px;padding:3px 5px;border-radius:5px;border:1px solid #ccc;';
+    chiefInput.addEventListener('change', function () { shape.name = chiefInput.value.trim(); renderAll(); });
+    var goTo = document.createElement('button');
+    goTo.className = 'act';
+    goTo.textContent = '이동';
+    goTo.addEventListener('click', function () {
+      var c = ringCenter(shape.rings[0]);
+      oMap.panTo(L.latLng(c[1], c[0]));
+      oMap.setZoom(17);
+    });
+    var del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '삭제';
+    del.addEventListener('click', function () {
+      delete tongShapes[tongNum];
+      renderAll();
+    });
+    li.appendChild(swatch); li.appendChild(label); li.appendChild(chiefInput); li.appendChild(goTo); li.appendChild(del);
+    ul.appendChild(li);
+
+    if (shape.banShapes) {
+      Object.keys(shape.banShapes).map(Number).sort(function (a, b) { return a - b; }).forEach(function (banNum) {
+        var banShape = shape.banShapes[banNum];
+        if (!banShape.rings.length) return;
+        var bli = document.createElement('li');
+        bli.className = 'banItem';
+        var bSwatch = document.createElement('span');
+        bSwatch.className = 'swatch';
+        var bLabel = document.createElement('span');
+        bLabel.textContent = tongNum + unitLabel() + ' ' + banNum + '반 (조각 ' + banShape.rings.length + '개)';
+        var bGoTo = document.createElement('button');
+        bGoTo.className = 'act';
+        bGoTo.textContent = '이동';
+        bGoTo.addEventListener('click', function () {
+          var c = ringCenter(banShape.rings[0]);
+          oMap.panTo(L.latLng(c[1], c[0]));
+          oMap.setZoom(18);
+        });
+        var bDel = document.createElement('button');
+        bDel.className = 'del';
+        bDel.textContent = '삭제';
+        bDel.addEventListener('click', function () {
+          delete shape.banShapes[banNum];
+          renderAll();
+        });
+        bli.appendChild(bSwatch); bli.appendChild(bLabel); bli.appendChild(bGoTo); bli.appendChild(bDel);
+        ul.appendChild(bli);
+      });
+    }
+  });
+}
+
+/* ---------- 점 위치 수정 ---------- */
+function setEditStatus(html, cls) {
+  var el = document.getElementById('editStatus');
+  el.className = 'status' + (cls ? ' ' + cls : '');
+  el.textContent = html;
+}
+
+function editingTargetKey(t) {
+  if (!t) return '';
+  if (t.kind === 'boundary') return 'boundary';
+  if (t.kind === 'tong') return 'tong:' + t.tongNum;
+  return 'ban:' + t.tongNum + ':' + t.banNum;
+}
+
+function refreshEditTargetOptions() {
+  var sel = document.getElementById('editTargetSelect');
+  var prevValue = editingTarget ? editingTargetKey(editingTarget) : sel.value;
+  sel.innerHTML = '<option value="">대상을 선택하세요</option>';
+  if (boundaryRing && boundaryRing.length) {
+    var bOpt = document.createElement('option');
+    bOpt.value = 'boundary';
+    bOpt.textContent = '동 외곽선';
+    sel.appendChild(bOpt);
+  }
+  Object.keys(tongShapes).map(Number).sort(function (a, b) { return a - b; }).forEach(function (tongNum) {
+    var shape = tongShapes[tongNum];
+    var tOpt = document.createElement('option');
+    tOpt.value = 'tong:' + tongNum;
+    tOpt.textContent = tongNum + unitLabel() + '';
+    sel.appendChild(tOpt);
+    if (shape.banShapes) {
+      Object.keys(shape.banShapes).map(Number).sort(function (a, b) { return a - b; }).forEach(function (banNum) {
+        if (!shape.banShapes[banNum].rings.length) return;
+        var banOpt = document.createElement('option');
+        banOpt.value = 'ban:' + tongNum + ':' + banNum;
+        banOpt.textContent = '　└ ' + tongNum + unitLabel() + ' ' + banNum + '반';
+        sel.appendChild(banOpt);
+      });
+    }
+  });
+  sel.value = prevValue || '';
+  if (editingTarget && sel.value !== prevValue) {
+    // 편집 중이던 대상이 사라짐 (예: 삭제됨) -> 편집 종료
+    stopVertexEdit();
+  }
+}
+
+function refreshBanParentTongOptions() {
+  var sel = document.getElementById('banParentTongSelect');
+  var prevValue = sel.value;
+  sel.replaceChildren(new Option(unitLabel() + ' 선택', ''));
+  Object.keys(tongShapes).map(Number).sort(function (a, b) { return a - b; }).forEach(function (tongNum) {
+    var opt = document.createElement('option');
+    opt.value = String(tongNum);
+    opt.textContent = tongNum + unitLabel() + '';
+    sel.appendChild(opt);
+  });
+  if (Array.from(sel.options).some(function (o) { return o.value === prevValue; })) sel.value = prevValue;
+}
+
+function makeVertexMarkerImage(selected) {
+  if (selected) {
+    if (vertexMarkerImgSelected) return vertexMarkerImgSelected;
+    var svgSel = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">' +
+      '<circle cx="8" cy="8" r="6" fill="#ffb300" stroke="#fff" stroke-width="2"/></svg>';
+    vertexMarkerImgSelected = mapIcon('data:image/svg+xml;base64,' + btoa(svgSel), L.point(16, 16), { offset: L.point(8, 8) });
+    return vertexMarkerImgSelected;
+  }
+  if (vertexMarkerImg) return vertexMarkerImg;
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14">' +
+    '<circle cx="7" cy="7" r="5" fill="#e91e63" stroke="#fff" stroke-width="2"/></svg>';
+  vertexMarkerImg = mapIcon('data:image/svg+xml;base64,' + btoa(svg), L.point(14, 14), { offset: L.point(7, 7) });
+  return vertexMarkerImg;
+}
+
+function makeMidpointMarkerImage() {
+  if (midpointMarkerImg) return midpointMarkerImg;
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">' +
+    '<circle cx="5" cy="5" r="4" fill="#2196f3" stroke="#fff" stroke-width="1.5"/></svg>';
+  midpointMarkerImg = mapIcon('data:image/svg+xml;base64,' + btoa(svg), L.point(10, 10), { offset: L.point(5, 5) });
+  return midpointMarkerImg;
+}
+
+function getEditingRings() {
+  if (!editingTarget) return null;
+  if (editingTarget.kind === 'boundary') return boundaryRing ? [boundaryRing] : null;
+  var shape = tongShapes[editingTarget.tongNum];
+  if (!shape) return null;
+  if (editingTarget.kind === 'tong') return shape.rings;
+  if (editingTarget.kind === 'ban') {
+    var banShape = shape.banShapes && shape.banShapes[editingTarget.banNum];
+    return banShape ? banShape.rings : null;
+  }
+  return null;
+}
+
+function clearVertexMarkers() {
+  editVertexMarkers.forEach(function (m) { m.marker.remove(); });
+  editVertexMarkers = [];
+  editMidpointMarkers.forEach(function (m) { m.marker.remove(); });
+  editMidpointMarkers = [];
+}
+
+/* 통 경계가 바뀐 뒤, 그 통 안의 반 경계들이 새 범위를 벗어나지 않도록 안쪽으로 다시 잘라준다.
+   (통이 좁아지기만 하는 자르기라 반끼리 새로 겹칠 일은 없다.) */
+function reconcileAllBansForTong(tongNum) {
+  var shape = tongShapes[tongNum];
+  if (!shape || !shape.banShapes) return;
+  var tongUnion = unionOfRings(shape.rings);
+  Object.keys(shape.banShapes).map(Number).forEach(function (banNum) {
+    var banShape = shape.banShapes[banNum];
+    var newRings = [];
+    banShape.rings.forEach(function (ring) {
+      newRings = newRings.concat(clipRingToFeature(ring, tongUnion));
+    });
+    if (newRings.length) banShape.rings = newRings;
+    else delete shape.banShapes[banNum];
+  });
+}
+
+/* 편집 중인 통의 경계를 동 외곽선에 맞춰 자르고, 다른 통과 겹치면 그 부분을
+   방금 편집한 통 쪽으로 넘겨 정리한다 (그리기 완성 때와 동일한 규칙, 최근 수정이 우선). */
+function reconcileTongAfterEdit(tongNum) {
+  var shape = tongShapes[tongNum];
+  if (!shape) return;
+  var newRings = [];
+  shape.rings.forEach(function (ring) {
+    newRings = newRings.concat(clipRingToBoundary(ring));
+  });
+  if (!newRings.length) {
+    delete tongShapes[tongNum]; // 동 외곽선을 완전히 벗어나 남는 부분이 없음
+    return;
+  }
+  var newUnion = unionOfRings(newRings);
+  Object.keys(tongShapes).map(Number).forEach(function (otherNum) {
+    if (otherNum === tongNum) return;
+    var other = tongShapes[otherNum];
+    var remaining = [];
+    other.rings.forEach(function (oldRing) {
+      remaining = remaining.concat(subtractFromRing(oldRing, newUnion));
+    });
+    if (remaining.length) {
+      other.rings = remaining;
+      reconcileAllBansForTong(otherNum); // 줄어든 통 범위에 맞춰 그 통의 반들도 다시 자른다
+    } else {
+      delete tongShapes[otherNum];
+    }
+  });
+  shape.rings = newRings;
+  reconcileAllBansForTong(tongNum);
+}
+
+/* 편집 중인 반의 경계를 그 통의 영역 안으로 자르고, 같은 통 안의 다른 반과 겹치면
+   그 부분을 방금 편집한 반 쪽으로 넘겨 정리한다 (통과 동 외곽선의 관계와 같은 규칙). */
+function reconcileBanAfterEdit(tongNum, banNum) {
+  var shape = tongShapes[tongNum];
+  if (!shape || !shape.banShapes || !shape.banShapes[banNum]) return;
+  var tongUnion = unionOfRings(shape.rings);
+  var banShape = shape.banShapes[banNum];
+  var newRings = [];
+  banShape.rings.forEach(function (ring) {
+    newRings = newRings.concat(clipRingToFeature(ring, tongUnion));
+  });
+  if (!newRings.length) {
+    delete shape.banShapes[banNum]; // 그 통 영역을 완전히 벗어나 남는 부분이 없음
+    return;
+  }
+  var newUnion = unionOfRings(newRings);
+  Object.keys(shape.banShapes).map(Number).forEach(function (otherBan) {
+    if (otherBan === banNum) return;
+    var other = shape.banShapes[otherBan];
+    var remaining = [];
+    other.rings.forEach(function (oldRing) {
+      remaining = remaining.concat(subtractFromRing(oldRing, newUnion));
+    });
+    if (remaining.length) other.rings = remaining;
+    else delete shape.banShapes[otherBan];
+  });
+  banShape.rings = newRings;
+}
+
+/* 드래그/점 추가/점 삭제 등 편집 동작 뒤 공통으로 호출: 통/반이면 자르기+겹침 정리를 적용하고 다시 그린다. */
+function afterVertexChange() {
+  if (editingTarget && editingTarget.kind === 'tong') {
+    reconcileTongAfterEdit(editingTarget.tongNum);
+  } else if (editingTarget && editingTarget.kind === 'ban') {
+    reconcileBanAfterEdit(editingTarget.tongNum, editingTarget.banNum);
+  }
+  renderAll();
+}
+
+function renderVertexMarkers() {
+  clearVertexMarkers();
+  var rings = getEditingRings();
+  if (!rings) return;
+
+  rings.forEach(function (ring, partIndex) {
+    var count = ring.length;
+    var lastIsClose = count > 1 && ring[0][0] === ring[count - 1][0] && ring[0][1] === ring[count - 1][1];
+    var upTo = lastIsClose ? count - 1 : count;
+
+    for (var i = 0; i < upTo; i++) {
+      (function (partIndex, vertexIndex) {
+        var p = ring[vertexIndex];
+        var isSelected = !!(selectedVertex && selectedVertex.partIndex === partIndex && selectedVertex.vertexIndex === vertexIndex);
+        var marker = mapMarker({
+          map: oMap,
+          position: L.latLng(p[1], p[0]),
+          image: makeVertexMarkerImage(isSelected),
+          draggable: true,
+          zIndex: 30
+        });
+        marker.on('click', function () {
+          selectedVertex = { partIndex: partIndex, vertexIndex: vertexIndex };
+          document.getElementById('deletePointBtn').disabled = false;
+          renderVertexMarkers();
+        });
+        marker.on('dragend', function () {
+          var pos = marker.getLatLng();
+          var newPt = [pos.lng, pos.lat];
+          var currentRings = getEditingRings();
+          if (!currentRings || !currentRings[partIndex]) return;
+          var r = currentRings[partIndex];
+          var n = r.length;
+          var wasClosed = (vertexIndex === 0 && n > 1 && r[0][0] === r[n - 1][0] && r[0][1] === r[n - 1][1]);
+          r[vertexIndex] = newPt;
+          if (wasClosed) r[n - 1] = [newPt[0], newPt[1]];
+          afterVertexChange();
+        });
+        editVertexMarkers.push({ marker: marker, partIndex: partIndex, vertexIndex: vertexIndex });
+      })(partIndex, i);
+    }
+
+    // 각 선분 중간에 "점 추가" 마커를 놓는다 (닫힘 구간 포함, ring.length-1개 구간)
+    for (var s = 0; s < ring.length - 1; s++) {
+      (function (partIndex, afterIndex) {
+        var a = ring[afterIndex], b = ring[afterIndex + 1];
+        var mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        var mMarker = mapMarker({
+          map: oMap,
+          position: L.latLng(mid[1], mid[0]),
+          image: makeMidpointMarkerImage(),
+          zIndex: 28
+        });
+        mMarker.on('click', function () {
+          var currentRings = getEditingRings();
+          if (!currentRings || !currentRings[partIndex]) return;
+          currentRings[partIndex].splice(afterIndex + 1, 0, mid.slice());
+          selectedVertex = null;
+          document.getElementById('deletePointBtn').disabled = true;
+          // 새로 추가한 점은 기존 선분 위(동일 경계선)에 있어서 자르기/겹침 정리가 필요 없다.
+          // 여기서 다시 잘라내면(reconcile) 일직선상의 점이 중복으로 간주되어 바로 사라져버리므로 건너뛴다.
+          renderAll();
+        });
+        editMidpointMarkers.push({ marker: mMarker, partIndex: partIndex, afterIndex: afterIndex });
+      })(partIndex, s);
+    }
+  });
+}
+
+function deleteSelectedPoint() {
+  if (!selectedVertex) return;
+  var rings = getEditingRings();
+  if (!rings || !rings[selectedVertex.partIndex]) { selectedVertex = null; return; }
+  var r = rings[selectedVertex.partIndex];
+  var lastIsClose = r.length > 1 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1];
+  var uniqueCount = lastIsClose ? r.length - 1 : r.length;
+  if (uniqueCount <= 3) {
+    rings.splice(selectedVertex.partIndex, 1);
+    if (!rings.length) {
+      if (editingTarget.kind === 'boundary') boundaryRing = null;
+      else if (editingTarget.kind === 'tong') delete tongShapes[editingTarget.tongNum];
+      else delete tongShapes[editingTarget.tongNum].banShapes[editingTarget.banNum];
+      stopVertexEdit();
+      renderAll();
+    } else {
+      selectedVertex = null;
+      document.getElementById('deletePointBtn').disabled = true;
+      afterVertexChange();
+    }
+    setEditStatus('점이 2개 이하로 남아 해당 경계를 삭제했습니다.', 'ok');
+    return;
+  }
+  var idx = selectedVertex.vertexIndex;
+  if (idx === 0 && lastIsClose) {
+    // 첫 점(=닫힘점)을 지우면 다음 점을 새 시작점으로 삼고 닫힘점도 맞춰준다.
+    r.splice(0, 1);
+    r[r.length - 1] = [r[0][0], r[0][1]];
+  } else {
+    r.splice(idx, 1);
+  }
+  selectedVertex = null;
+  document.getElementById('deletePointBtn').disabled = true;
+  afterVertexChange();
+}
+
+function startVertexEdit() {
+  var val = document.getElementById('editTargetSelect').value;
+  if (!val) { setEditStatus('먼저 편집할 대상을 선택해주세요.', 'warn'); return; }
+  if (isDrawing) { setEditStatus('그리기를 먼저 끝내거나 취소해주세요.', 'warn'); return; }
+  if (isPickingParcel) { setEditStatus('지도에서 지번 선택을 먼저 종료해주세요.', 'warn'); return; }
+  if (val === 'boundary') {
+    editingTarget = { kind: 'boundary' };
+  } else if (val.indexOf('ban:') === 0) {
+    var banParts = val.split(':');
+    editingTarget = { kind: 'ban', tongNum: parseInt(banParts[1], 10), banNum: parseInt(banParts[2], 10) };
+  } else {
+    editingTarget = { kind: 'tong', tongNum: parseInt(val.split(':')[1], 10) };
+  }
+  selectedVertex = null;
+  document.getElementById('editStartBtn').disabled = true;
+  document.getElementById('editStopBtn').disabled = false;
+  document.getElementById('editTargetSelect').disabled = true;
+  document.getElementById('deletePointBtn').disabled = true;
+  renderVertexMarkers();
+  setEditStatus('빨간 점은 드래그(이동)·클릭(선택), 파란 점은 클릭(추가)할 수 있어요.', 'ok');
+}
+
+function stopVertexEdit() {
+  editingTarget = null;
+  selectedVertex = null;
+  clearVertexMarkers();
+  document.getElementById('editStartBtn').disabled = false;
+  document.getElementById('editStopBtn').disabled = true;
+  document.getElementById('editTargetSelect').disabled = false;
+  document.getElementById('deletePointBtn').disabled = true;
+  setEditStatus('');
+}
+
+/* ---------- 그리기 ---------- */
+function setDrawStatus(html, cls) {
+  var el = document.getElementById('drawStatus');
+  el.className = 'status' + (cls ? ' ' + cls : '');
+  el.textContent = html;
+}
+
+function refreshDrawPreview() {
+  if (drawPreviewLine) { drawPreviewLine.remove(); drawPreviewLine = null; }
+  drawPreviewDots.forEach(function (d) { d.remove(); });
+  drawPreviewDots = [];
+  if (!drawPoints.length) return;
+
+  var path = drawPoints.map(function (p) { return L.latLng(p[1], p[0]); });
+  drawPreviewLine = mapPolyline({
+    map: oMap, path: path, strokeWeight: 3, strokeColor: '#e91e63',
+    strokeOpacity: 0.95, strokeStyle: 'shortdash', zIndex: 15
+  });
+  drawPoints.forEach(function (p) {
+    var dot = mapLabel({
+      position: L.latLng(p[1], p[0]),
+      content: '<div style="width:8px;height:8px;border-radius:50%;background:#e91e63;border:2px solid #fff;transform:translate(-50%,-50%);"></div>',
+      zIndex: 16
+    });
+    dot.addTo(oMap);
+    drawPreviewDots.push(dot);
+  });
+}
+
+function mapClickWhileDrawing(mouseEvent) {
+  if (!isDrawing) return;
+  drawPoints.push([mouseEvent.latlng.lng, mouseEvent.latlng.lat]);
+  refreshDrawPreview();
+  document.getElementById('drawUndoBtn').disabled = drawPoints.length === 0;
+  document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
+}
+
+// 지도 클릭을 상황에 맞게 나눠 처리한다: 지번 선택 모드가 켜져 있으면 그쪽을, 아니면 기존 그리기를 처리한다.
+function handleMapClick(mouseEvent) {
+  if (isPickingParcel) { handleParcelPickClick(mouseEvent); return; }
+  mapClickWhileDrawing(mouseEvent);
+}
+
+function setMode(newMode) {
+  mode = newMode;
+  document.getElementById('modeTongBtn').classList.toggle('active', mode === 'tong');
+  document.getElementById('modeBanBtn').classList.toggle('active', mode === 'ban');
+  document.getElementById('modeBoundaryBtn').classList.toggle('active', mode === 'boundary');
+  document.getElementById('tongFields').style.display = mode === 'tong' ? 'flex' : 'none';
+  document.getElementById('banFields').style.display = mode === 'ban' ? 'flex' : 'none';
+  if (mode === 'ban') refreshBanParentTongOptions();
+}
+
+function startDrawing() {
+  if (editingTarget) { setDrawStatus('점 편집을 먼저 종료해주세요.', 'warn'); return; }
+  if (isPickingParcel) { setDrawStatus('지도에서 지번 선택을 먼저 종료해주세요.', 'warn'); return; }
+  isDrawing = true;
+  drawPoints = [];
+  refreshDrawPreview();
+  document.getElementById('drawStartBtn').disabled = true;
+  document.getElementById('drawUndoBtn').disabled = true;
+  document.getElementById('drawFinishBtn').disabled = true;
+  document.getElementById('drawCancelBtn').disabled = false;
+  setDrawStatus('지도를 클릭해 꼭짓점을 찍어주세요 (최소 3개).');
+}
+
+function undoDrawPoint() {
+  drawPoints.pop();
+  refreshDrawPreview();
+  document.getElementById('drawUndoBtn').disabled = drawPoints.length === 0;
+  document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
+}
+
+function resetDrawButtons() {
+  document.getElementById('drawStartBtn').disabled = false;
+  document.getElementById('drawUndoBtn').disabled = true;
+  document.getElementById('drawFinishBtn').disabled = true;
+  document.getElementById('drawCancelBtn').disabled = true;
+}
+
+function cancelDrawing() {
+  isDrawing = false;
+  drawPoints = [];
+  refreshDrawPreview();
+  resetDrawButtons();
+  setDrawStatus('');
+}
+
+function finishDrawing() {
+  if (drawPoints.length < 3) {
+    setDrawStatus('점을 3개 이상 찍어주세요.', 'warn');
+    return;
+  }
+  var ring = drawPoints.slice();
+  var first = ring[0], last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
+  try { validateRings([ring]); } catch (error) { setDrawStatus(error.message, 'warn'); return; }
+
+  if (mode === 'tong') {
+    var tongNum = Number(document.getElementById('tongNumInput').value);
+    if (!Number.isInteger(tongNum) || tongNum < 1 || tongNum > 999999) { setDrawStatus(unitLabel() + ' 번호를 먼저 입력해주세요.', 'warn'); return; }
+
+    // 1) 동 외곽선 밖으로 나간 부분은 잘라낸다.
+    var newRings = clipRingToBoundary(ring);
+    if (!newRings.length) {
+      setDrawStatus('그린 영역이 동 외곽선과 겹치지 않아 반영되지 않았습니다.', 'warn');
+      isDrawing = false; drawPoints = []; refreshDrawPreview(); resetDrawButtons();
+      return;
+    }
+
+    // 2) 다른 통과 겹치는 부분은 방금 그린 통 쪽으로 넘긴다 — 같은 땅이 두 통 면적에
+    //    동시에 들어가 중복 계산되지 않도록, 새로 그린 경계선이 그 자리의 새 경계가 되고
+    //    기존 통에서는 겹친 부분을 도려낸다 (최근에 그린 선이 우선한다).
+    var newUnion = unionOfRings(newRings);
+    Object.keys(tongShapes).map(Number).forEach(function (otherNum) {
+      if (otherNum === tongNum) return;
+      var shape = tongShapes[otherNum];
+      var remaining = [];
+      shape.rings.forEach(function (oldRing) {
+        remaining = remaining.concat(subtractFromRing(oldRing, newUnion));
+      });
+      if (remaining.length) {
+        shape.rings = remaining;
+        reconcileAllBansForTong(otherNum); // 줄어든 통 범위에 맞춰 그 통의 반들도 다시 자른다
+      } else {
+        delete tongShapes[otherNum]; // 완전히 겹쳐서 남는 부분이 없으면 그 통은 사라진다
+      }
+    });
+
+    if (!tongShapes[tongNum]) tongShapes[tongNum] = { rings: [], bans: [] };
+    // 같은 통을 다시 그려서 기존 영역을 통째로 감싸거나 겹치는 경우엔 그냥 이어붙이면(concat)
+    // 안 된다 — 지도 폴리곤이 겹치는 여러 링을 "바깥선 + 구멍"으로 해석해서 안에 있던 기존
+    // 영역이 뻥 뚫린 구멍처럼 안 채워져 보인다. mergeRingsAdjacent로 겹치거나 맞닿은 부분은
+    // 하나로 합쳐서(turf.union) 이런 구멍이 안 생기게 한다 (떨어져 있는 조각은 별개로 남는다).
+    tongShapes[tongNum].rings = mergeRingsAdjacent(tongShapes[tongNum].rings, newRings);
+    setDrawStatus(tongNum + unitLabel() + ' 경계를 추가했습니다 (겹친 부분은 자동 정리됨).', 'ok');
+  } else if (mode === 'ban') {
+    var parentTongNum = Number(document.getElementById('banParentTongSelect').value);
+    var banNum = Number(document.getElementById('banNumInput').value);
+    if (isNaN(parentTongNum) || !tongShapes[parentTongNum]) {
+      setDrawStatus('반이 속할 ' + unitLabel() + ' 경계를 먼저 선택해주세요.', 'warn');
+      isDrawing = false; drawPoints = []; refreshDrawPreview(); resetDrawButtons();
+      return;
+    }
+    if (!Number.isInteger(banNum) || banNum < 1 || banNum > 999999) { setDrawStatus('반 번호를 먼저 입력해주세요.', 'warn'); return; }
+    var parentShape = tongShapes[parentTongNum];
+    if (!parentShape.banShapes) parentShape.banShapes = {};
+
+    // 1) 그 통 영역 밖으로 나간 부분은 잘라낸다.
+    var tongUnion = unionOfRings(parentShape.rings);
+    var newBanRings = clipRingToFeature(ring, tongUnion);
+    if (!newBanRings.length) {
+      setDrawStatus('그린 영역이 ' + parentTongNum + unitLabel() + ' 경계와 겹치지 않아 반영되지 않았습니다.', 'warn');
+      isDrawing = false; drawPoints = []; refreshDrawPreview(); resetDrawButtons();
+      return;
+    }
+
+    // 2) 같은 통 안의 다른 반과 겹치는 부분은, 방금 그린 반 쪽으로 넘기고 기존 반에서는
+    //    도려낸다 — 통과 같은 이유로, 같은 땅이 두 반 면적에 중복으로 들어가지 않게 한다.
+    var newBanUnion = unionOfRings(newBanRings);
+    Object.keys(parentShape.banShapes).map(Number).forEach(function (otherBan) {
+      if (otherBan === banNum) return;
+      var otherBanShape = parentShape.banShapes[otherBan];
+      var remaining = [];
+      otherBanShape.rings.forEach(function (oldRing) {
+        remaining = remaining.concat(subtractFromRing(oldRing, newBanUnion));
+      });
+      if (remaining.length) {
+        otherBanShape.rings = remaining;
+      } else {
+        delete parentShape.banShapes[otherBan];
+      }
+    });
+
+    if (!parentShape.banShapes[banNum]) parentShape.banShapes[banNum] = { rings: [] };
+    // 같은 반을 다시 그려서 기존 영역을 감싸거나 겹치는 경우의 구멍 문제를 막기 위해,
+    // 통과 마찬가지로 concat 대신 mergeRingsAdjacent로 합친다.
+    parentShape.banShapes[banNum].rings = mergeRingsAdjacent(parentShape.banShapes[banNum].rings, newBanRings);
+    if (parentShape.bans.indexOf(banNum) === -1) {
+      parentShape.bans.push(banNum);
+      parentShape.bans.sort(function (a, b) { return a - b; });
+    }
+    setDrawStatus(parentTongNum + unitLabel() + ' ' + banNum + '반 경계를 추가했습니다.', 'ok');
+  } else {
+    boundaryFeature = null;
+    boundaryRing = ring;
+    setDrawStatus('동 외곽선을 갱신했습니다.', 'ok');
+  }
+
+  isDrawing = false;
+  drawPoints = [];
+  refreshDrawPreview();
+  resetDrawButtons();
+  renderAll();
+}
+
+/* ---------- 내보내기 / 불러오기 (구로구 guro.json / tong.json 형식과 호환) ---------- */
+function downloadJson(obj, filename) {
+  var blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+function csvCell(v) {
+  var s = (v === null || v === undefined) ? '' : String(v);
+  if (/^[\s]*[=+@-]/.test(s)) s = "'" + s;
+  if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+// 엑셀에서 한글이 깨지지 않도록 UTF-8 BOM을 앞에 붙인다.
+function downloadCsv(rows, filename) {
+  var csv = rows.map(function (row) { return row.map(csvCell).join(','); }).join('\r\n');
+  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+// 지번 표기 끝에 붙는 지목 글자만 뽑아낸다 ("771-19대" -> "대", "산10-2도" -> "도").
+function parcelJimok(s) {
+  var m = (s || '').replace(/\s+/g, '').match(/[가-힣]+$/);
+  return m ? m[0] : '';
+}
+
+// items를 concurrency개씩 동시에 worker(item)로 처리한다 (도로명주소 조회를 순서대로 하나씩
+// 하면 지번이 많을 때 너무 오래 걸려서, 여러 개를 동시에 보내되 너무 많이 한꺼번에 보내진
+// 않게 개수를 제한한다).
+function runWithConcurrency(items, worker, concurrency, onProgress) {
+  return new Promise(function (resolve) {
+    if (!items.length) { resolve([]); return; }
+    var results = new Array(items.length);
+    var nextIndex = 0, doneCount = 0;
+    function startNext() {
+      if (nextIndex >= items.length) return;
+      var i = nextIndex++;
+      worker(items[i], i).then(function (r) {
+        results[i] = r;
+        doneCount++;
+        if (onProgress) onProgress(doneCount, items.length);
+        if (doneCount === items.length) resolve(results);
+        else startNext();
+      });
+    }
+    var starters = Math.min(concurrency, items.length);
+    for (var k = 0; k < starters; k++) startNext();
+  });
+}
+
+/* 반대 방향 조회: "이 지번이 몇 통 몇 반인가"가 아니라, 이 동의 지번 전체를 훑어서
+   "지번 → 몇 통 몇 반"인지 한 번에 표로 뽑아낸다. 필지 편입 때 쓰는 findParcelOwner를
+   지번 하나하나에 그대로 적용해서 뒤집어 쓰는 방식이라, 판정 기준(필지 중심점이 어느
+   통/반 폴리곤 안에 있는지)이 편입 기능과 항상 똑같다. 지목이 도로(도)·구거(구)인 지번은
+   실제 거주지가 아니므로 목록에서 빼고, 지번 칸에는 지목 글자를 뺀 번지만 넣으며, 각
+   지번 중심점의 도로명주소도 함께 조회해서 열을 추가한다. */
+function exportParcelTongBanList() {
+  var el = document.getElementById('exportParcelTongBanStatus');
+  var dongName = document.getElementById('dongNameInput').value.trim() || '한남동';
+  var allParcels = currentDongParcels();
+  if (!allParcels || !allParcels.length) {
+    el.className = 'status warn';
+    el.textContent = '이 동은 지번(필지) 데이터가 없어서 추출할 수 없습니다.';
+    return;
+  }
+  if (!Object.keys(tongShapes).length) {
+    el.className = 'status warn';
+    el.textContent = '먼저 ' + unitLabel() + '/반 경계를 만들어주세요.';
+    return;
+  }
+
+  var parcels = allParcels.filter(function (p) {
+    var jimok = parcelJimok(p.j);
+    return jimok !== '도' && jimok !== '구';
+  });
+  var excludedCount = allParcels.length - parcels.length;
+  if (!parcels.length) {
+    el.className = 'status warn';
+    el.textContent = '지목이 도로/구거가 아닌 지번이 없어서 추출할 목록이 없습니다.';
+    return;
+  }
+
+  el.className = 'status ok';
+  el.textContent = '추출 중… (지번 ' + parcels.length + '개, 포함된 도로명주소 사용)';
+
+  // 필지 수가 많으면(수천 개) turf 연산이 화면을 잠깐 멈추게 할 수 있어서, 상태 문구를
+  // 먼저 그리게 한 프레임 양보한 다음 실제 계산을 시작한다.
+  setTimeout(function () {
+    var entries = parcels.map(function (p) {
+      var feature = null, centroid = null, owner = { tongNum: null, banNum: null };
+      try {
+        feature = parcelToTurfFeature(p);
+        centroid = turf.centroid(feature);
+        owner = findParcelOwner(feature);
+      } catch (e) {}
+      return { p: p, centroid: centroid, owner: owner };
+    });
+    var unassignedCount = entries.filter(function (e) { return e.owner.tongNum == null; }).length;
+
+    runWithConcurrency(entries, function (entry) {
+      if (!entry.centroid) return Promise.resolve('');
+      var c = entry.centroid.geometry.coordinates; // [lng, lat]
+      return Promise.resolve(entry.p.road_address || '');
+    }, 6, function (done, total) {
+      if (done % 200 === 0 || done === total) {
+        el.textContent = '필지 목록 작성 중… (' + done + ' / ' + total + ')';
+      }
+    }).then(function (roadAddresses) {
+      var rows = [['읍면동', '지번', unitLabel(), '반', '도로명주소']];
+      entries.forEach(function (entry, i) {
+        rows.push([
+          dongName,
+          jibunCore(entry.p.j),
+          entry.owner.tongNum != null ? entry.owner.tongNum : '',
+          entry.owner.banNum != null ? entry.owner.banNum : '',
+          roadAddresses[i] || ''
+        ]);
+      });
+
+      downloadCsv(rows, dongName + '_지번별_' + unitLabel() + '반.csv');
+      el.className = 'status ok';
+      var noAddrCount = roadAddresses.filter(function (a) { return !a; }).length;
+      var msg = '지번 ' + parcels.length + '개 중 ' + (parcels.length - unassignedCount) + '개 배정 · ' +
+        unassignedCount + '개 미배정(빈 칸)';
+      if (excludedCount) msg += ' 지목이 도로/구거인 ' + excludedCount + '개는 제외했습니다.';
+      if (noAddrCount) msg += ' 도로명주소는 ' + noAddrCount + '개가 원본 필지 데이터에 없어 빈 칸입니다. 외부 주소 조회는 하지 않습니다.';
+      el.textContent = msg;
+    });
+  }, 30);
+}
+
+document.getElementById('exportParcelTongBanBtn').addEventListener('click', exportParcelTongBanList);
+
+function buildTongJsonObject() {
+  var body = Object.keys(tongShapes).map(Number).sort(function (a, b) { return a - b; }).map(function (tongNum) {
+    var shape = tongShapes[tongNum];
+    var lngs = [], lats = [];
+    shape.rings.forEach(function (ring) { ring.forEach(function (p) { lngs.push(p[0]); lats.push(p[1]); }); });
+    var center = ringCenter(shape.rings[0]);
+    var banCoordData = {};
+
+    if (shape.banShapes) {
+      Object.keys(shape.banShapes).forEach(function (banNum) {
+        var bs = shape.banShapes[banNum];
+        if (bs.rings.length) {
+          banCoordData[banNum] = bs.rings;
+
+        }
+      });
+    }
+    return {
+      COT_CONTS_NAME: String(tongNum),
+      COT_THEME_SUB_ID: 1,
+      COT_TEL_NO: '',
+      COT_VALUE_01: center[1] + '｜' + center[0],
+      COT_MBR_MIN_X: lngs.reduce(function (min, value) { return Math.min(min, value); }, Infinity),
+      COT_MBR_MAX_X: lngs.reduce(function (max, value) { return Math.max(max, value); }, -Infinity),
+      COT_MBR_MIN_Y: lats.reduce(function (min, value) { return Math.min(min, value); }, Infinity),
+      COT_MBR_MAX_Y: lats.reduce(function (max, value) { return Math.max(max, value); }, -Infinity),
+      COT_COORD_DATA: [shape.rings],
+      UNIT_NAME: shape.name || '',
+      BAN_LIST: shape.bans || [],
+      BAN_COORD_DATA: banCoordData
+    };
+  });
+  var dongName = document.getElementById('dongNameInput').value.trim() || '한남동';
+  return { head: { DATA_COUNT: body.length, DONG_NAME: dongName, REGION_CODE: activeRegion ? activeRegion.code : null, UNIT_TYPE: unitType, BOUNDARY: boundaryFeature || (boundaryRing ? ringToTurfPoly(boundaryRing) : null) }, body: body };
+}
+
+function exportTongJson() {
+  var data = buildTongJsonObject();
+  downloadJson(data, data.head.DONG_NAME + '_' + unitType + '.json');
+}
+
+function exportBoundaryJson() {
+  if (boundaryFeature) { downloadJson(boundaryFeature, 'boundary.geojson'); return; }
+  var dongName = document.getElementById('dongNameInput').value.trim() || '한남동';
+  if (!boundaryRing || !boundaryRing.length) {
+    setDrawStatus('먼저 동 외곽선을 그려주세요.', 'warn');
+    return;
+  }
+  var polyCodi = boundaryRing.map(function (p) { return p[1] + '｜' + p[0]; }).join('∥');
+  downloadJson({ resultList: [{ adminDong: '동경계', tongName: dongName, polyCodi: polyCodi }] }, dongName + '_boundary.json');
+}
+
+
+
+
+/* ---------- 동 선택 (미리 탑재된 16개 동 외곽선 자동 불러오기) ---------- */
+function boundaryRingFromDongData(data) {
+  var list = (data && data.resultList) || [];
+  var entry = list.filter(function (e) { return e.adminDong === '동경계' || e.adminDong === '구경계'; })[0];
+  if (!entry) return null;
+  return entry.polyCodi.split('∥').map(function (pair) {
+    var p = pair.split('｜');
+    return [parseFloat(p[1]), parseFloat(p[0])];
+  });
+}
+
+function loadJsonFile(file, cb) {
+  var region = activeRegion;
+  readJsonUpload(file).then(function (data) {
+    if (region !== activeRegion) throw new Error('지역이 변경되었습니다. 다시 불러와주세요.');
+    cb(null, data);
+  }).catch(function (error) { cb(error); });
+}
+
+// 파일에서 불러오든 깃허브에서 불러오든 결과 데이터 모양은 같으므로 적용 로직을 하나로 모은다.
+function applyTongJsonData(data, sourceLabel) {
+  var el = document.getElementById('loadStatus');
+  var parsed = parseMapData(data);
+  var importedName = parsed.head.DONG_NAME;
+  var importedCode = data.head && data.head.REGION_CODE;
+  if (activeRegion && ((importedCode && importedCode !== activeRegion.code) ||
+      (!importedCode && importedName && importedName !== activeRegion.name && importedName !== activeRegion.fullName))) {
+    el.className = 'status warn';
+    el.textContent = 'JSON의 지역을 먼저 선택한 뒤 다시 불러와주세요.';
+    return;
+  }
+  var loaded = parsed.shapes;
+  if (Object.keys(tongShapes).length && !confirm('현재 경계를 불러온 파일로 교체할까요?')) return;
+  if (editingTarget) stopVertexEdit();
+  if (isDrawing) cancelDrawing();
+  unitType = parsed.head.UNIT_TYPE || (activeRegion && /[읍면]$/.test(activeRegion.name) ? 'ri' : 'tong');
+  if (parsed.head.BOUNDARY) { boundaryFeature = parsed.head.BOUNDARY; boundaryRing = null; }
+  updateUnitLabels();
+  tongShapes = loaded;
+  if (data.head && data.head.DONG_NAME) {
+    document.getElementById('dongNameInput').value = activeRegion ? activeRegion.fullName : data.head.DONG_NAME;
+  }
+  renderAll();
+  populateParcelSection();
+  el.className = 'status ok';
+  el.textContent = unitLabel() + ' 경계 ' + Object.keys(loaded).length + '개 불러옴 · ' + sourceLabel;
+}
+
+document.getElementById('loadTongInput').addEventListener('change', function (ev) {
+  var file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  loadJsonFile(file, function (err, data) {
+    var el = document.getElementById('loadStatus');
+    if (err) { el.className = 'status warn'; el.textContent = '읽기 실패: ' + err.message; return; }
+    applyTongJsonData(data, file.name);
+  });
+});
+
+
+
+document.getElementById('loadBoundaryInput').addEventListener('change', function (ev) {
+  var file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  loadJsonFile(file, function (err, data) {
+    var el = document.getElementById('loadStatus');
+    if (err) { el.className = 'status warn'; el.textContent = '읽기 실패: ' + err.message; return; }
+    if (data && data.type === 'Feature') {
+      try { validateBoundary(data); } catch (error) { el.textContent = error.message; return; }
+      if (editingTarget) stopVertexEdit();
+      boundaryFeature = data;
+      boundaryRing = null;
+      renderAll();
+      oMap.fitBounds(boundaryLine.getBounds());
+      el.textContent = '외곽선 불러옴 · ' + file.name;
+      return;
+    }
+    var list = data.resultList || [];
+    var entry = list.filter(function (e) { return e.adminDong === '동경계' || e.adminDong === '구경계'; })[0];
+    if (!entry) { el.className = 'status warn'; el.textContent = '외곽선 데이터를 찾지 못했습니다.'; return; }
+    var importedRing = entry.polyCodi.split('∥').map(function (pair) {
+      var p = pair.split('｜');
+      return [parseFloat(p[1]), parseFloat(p[0])];
+    });
+    validateRings([importedRing]);
+    boundaryFeature = null;
+    boundaryRing = importedRing;
+    if (editingTarget) stopVertexEdit();
+    if (entry.tongName) {
+      document.getElementById('dongNameInput').value = entry.tongName;
+    }
+    renderAll();
+    populateParcelSection();
+    el.className = 'status ok';
+    el.textContent = '외곽선 불러옴 · ' + file.name;
+  });
+});
+
+document.getElementById('modeTongBtn').addEventListener('click', function () { setMode('tong'); });
+document.getElementById('modeBanBtn').addEventListener('click', function () { setMode('ban'); });
+document.getElementById('modeBoundaryBtn').addEventListener('click', function () { setMode('boundary'); });
+document.getElementById('drawStartBtn').addEventListener('click', startDrawing);
+document.getElementById('drawUndoBtn').addEventListener('click', undoDrawPoint);
+document.getElementById('drawFinishBtn').addEventListener('click', finishDrawing);
+document.getElementById('drawCancelBtn').addEventListener('click', cancelDrawing);
+document.getElementById('exportTongBtn').addEventListener('click', exportTongJson);
+document.getElementById('exportBoundaryBtn').addEventListener('click', exportBoundaryJson);
+document.getElementById('editStartBtn').addEventListener('click', startVertexEdit);
+document.getElementById('editStopBtn').addEventListener('click', stopVertexEdit);
+document.getElementById('deletePointBtn').addEventListener('click', deleteSelectedPoint);
+document.getElementById('parcelFindBtn').addEventListener('click', findSelectedParcel);
+document.getElementById('assignParcelBtn').addEventListener('click', assignSelectedParcel);
+document.getElementById('parcelPickBtn').addEventListener('click', togglePickMode);
+document.getElementById('parcelSearchInput').addEventListener('keydown', function (ev) {
+  if (ev.key === 'Enter') { ev.preventDefault(); findSelectedParcel(); }
+});
+document.getElementById('assignTongInput').addEventListener('keydown', function (ev) {
+  if (ev.key === 'Enter') { ev.preventDefault(); assignSelectedParcel(); }
+});
+document.getElementById('assignBanInput').addEventListener('keydown', function (ev) {
+  if (ev.key === 'Enter') { ev.preventDefault(); assignSelectedParcel(); }
+});
+
+// 점을 선택한 상태에서 Delete/Backspace 키로도 삭제할 수 있게 한다.
+// 단, 입력창(동 이름/통 번호/반 목록)에 커서가 있을 때는 글자 지우기로 동작해야 하므로 그때는 무시한다.
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+  if (!editingTarget || !selectedVertex) return;
+  var tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  ev.preventDefault();
+  deleteSelectedPoint();
+});
+
+
+
+function init() {
+  var mapContainer = document.getElementById('gisMap');
+  oMap = createMap(mapContainer);
+  oMap.on('click', handleMapClick);
+  renderAll();
+  document.getElementById('loading').style.display = 'none';
+}
+
+function bootApp() {
+
+
+  if (window.L) {
+    init();
+    initRegions();
+  } else {
+    document.getElementById('loading').textContent = '지도 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.';
+  }
+}
+
+window.addEventListener('load', bootApp);
+
+//]]>
+</script>
+<script src="units.js"></script>
+<script src="regions.js"></script>
+<script src="parcels.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>통·리·반 지도</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+* { box-sizing:border-box; }
+body { margin:0; font-family:"Malgun Gothic",sans-serif; color:#263746; }
+#gisMap { position:absolute; inset:0; }
+#panel { position:absolute; top:12px; left:12px; z-index:1000; width:300px; padding:16px; border-radius:10px; background:white; box-shadow:0 2px 10px #0003; max-height:calc(100vh - 24px); overflow:auto; }
+h1 { font-size:18px; margin:0 0 12px; }
+label { display:block; font-size:12px; margin-top:12px; }
+select, button { width:100%; padding:10px; margin-top:5px; border:1px solid #d6dfe6; border-radius:7px; background:#f8fafc; font:inherit; font-size:13px; }
+button { cursor:pointer; text-align:left; }
+input[type=file] { width:100%; margin:8px 0; }
+a { color:#004c80; font-size:13px; }
+:focus-visible { outline:2px solid #004c80; outline-offset:2px; }
+#viewerStatus { font-size:12px; margin:12px 0; overflow-wrap:anywhere; }
+#viewerTitle { font-size:14px; }
+@media (max-width:600px) {
+  #panel { top:auto; bottom:0; left:0; width:100%; max-height:42vh; border-radius:12px 12px 0 0; }
+  #gisMap { bottom:42vh; }
+  select, button { font-size:16px; min-height:42px; }
+}
+</style>
+</head>
+<body>
+<div id="gisMap"></div>
+<main id="panel">
+<h1>통·리·반 지도</h1>
+<a href="editor.html">지도 편집하기</a>
+<label for="sidoSelect">시도</label><select id="sidoSelect"></select>
+<label for="sggSelect">시군구</label><select id="sggSelect"></select>
+<label for="dongSelect">읍면동</label><select id="dongSelect"></select>
+<label for="viewerFile">통·리·반 JSON</label><input type="file" id="viewerFile" accept=".json" disabled>
+<div id="viewerStatus" role="status">지도 준비 중…</div>
+<h2 id="viewerTitle"></h2><div id="viewerList"></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="map.js"></script>
+<script src="data-format.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>

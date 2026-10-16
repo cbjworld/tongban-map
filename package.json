@@ -1,0 +1,13 @@
+{
+  "name": "tongban-map",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first administrative boundary editor and viewer",
+  "license": "MIT",
+  "scripts": {
+    "test": "node check-delete-point.cjs && node check-regions.cjs && node check-release.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
