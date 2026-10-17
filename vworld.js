@@ -3,6 +3,33 @@ var onlineParcelController = null;
 var onlineParcelTimer;
 var onlineParcelKey = '';
 var onlineParcelSequence = 0;
+var onlineParcelRequestId = 0;
+function requestOnlineParcels(url, signal) {
+  return new Promise(function (resolve, reject) {
+    var callback = '__vworldParcel' + Date.now() + (++onlineParcelRequestId);
+    var script = document.createElement('script');
+    var settled = false;
+    function finish(error, payload) {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', abort);
+      script.remove();
+      window[callback] = function () {};
+      setTimeout(function () { delete window[callback]; }, 60000);
+      if (error) reject(error);
+      else resolve(payload);
+    }
+    function abort() { finish(new DOMException('Aborted', 'AbortError')); }
+    if (signal.aborted) { abort(); return; }
+    window[callback] = function (payload) { finish(null, payload); };
+    script.onerror = function () { finish(new Error('브이월드 연결 실패 · 네트워크 또는 서비스 상태를 확인하세요.')); };
+    script.onload = function () { if (!settled) finish(new Error('브이월드 응답 형식 오류 · 인증키와 등록 URL을 확인하세요.')); };
+    url.searchParams.set('callback', callback);
+    script.src = url.href;
+    signal.addEventListener('abort', abort, { once: true });
+    document.head.appendChild(script);
+  });
+}
 function onlineParcelStatus(message) { document.getElementById('vworldStatus').textContent = message; }
 function clearOnlineParcels() {
   onlineParcelSequence++;
@@ -67,9 +94,7 @@ async function loadOnlineParcels() {
         size: '1000', page: String(page), geomFilter: 'BOX(' + area.box.join(',') + ')' };
       Object.keys(params).forEach(function (name) { url.searchParams.set(name, params[name]); });
       timeout = setTimeout(function () { controller.abort(); }, 20000);
-      var result = await fetch(url.href, { signal: controller.signal, cache: 'no-store', credentials: 'omit' });
-      if (!result.ok) throw new Error('브이월드 HTTP ' + result.status);
-      var parsed = parseOnlineParcelResponse(await result.json());
+      var parsed = parseOnlineParcelResponse(await requestOnlineParcels(url, controller.signal));
       clearTimeout(timeout);
       if (sequence !== onlineParcelSequence || region !== activeRegion) return;
       pages = parsed.pages;

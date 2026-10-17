@@ -28,7 +28,10 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
       if (scenario === 'huge') response.page.total = '11';
       if (scenario === 'bad') response.result.featureCollection.features = [{ ...feature, geometry: { type: 'Polygon', coordinates: [] } }];
       if (scenario === 'slow') await new Promise(resolve => setTimeout(resolve, 500));
-      await route.fulfill({ json: { response }, headers: { 'access-control-allow-origin': '*' } }).catch(() => {});
+      if (scenario === 'network') { await route.abort(); return; }
+      const callback = url.searchParams.get('callback');
+      assert.match(callback, /^__vworldParcel\d+$/);
+      await route.fulfill({ contentType: 'application/javascript', body: scenario === 'missing' ? 'void 0;' : callback + '(' + JSON.stringify({ response }) + ');' }).catch(() => {});
     });
     await page.locator('#parcelTools summary').first().click();
     await page.locator('#onlineParcelTools summary').click();
@@ -64,6 +67,14 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
     await page.locator('#vworldDisconnect').click();
     await page.waitForTimeout(650);
     assert.equal(await page.evaluate(() => onlineParcelLayer === null && onlineParcelKey === ''), true);
+    for (const failure of ['network', 'missing']) {
+      scenario = failure;
+      await page.locator('#vworldKey').fill('test-only-not-a-real-key');
+      await page.locator('#vworldConnect').click();
+      await page.waitForFunction(() => !onlineParcelController);
+      assert.match(await page.locator('#vworldStatus').textContent(), failure === 'network' ? /연결 실패/ : /응답 형식 오류/);
+      assert.equal(await page.locator('script[src*="api.vworld.kr"]').count(), 0);
+    }
     await page.evaluate(() => oMap.setZoom(10, { animate: false }));
     const previous = requests.length;
     await page.locator('#vworldKey').fill('test-only-not-a-real-key');
