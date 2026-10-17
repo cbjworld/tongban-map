@@ -55,6 +55,7 @@ async function loadRegion(code) {
       entry.parcels ? readRegionJson(entry.code + '-parcels.json') : Promise.resolve(null)
     ]);
     validateBoundary(results[0]);
+    if (typeof clearOnlineParcels === 'function') clearOnlineParcels();
     workReady = false;
     clearTimeout(workTimer);
     if (editingTarget) stopVertexEdit();

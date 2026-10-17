@@ -24,7 +24,7 @@ async function upload(page, selector, data, name = 'test.json') {
     await page.waitForFunction(() => activeRegion && !document.getElementById('panel').inert);
     assert.equal(await page.locator('#parcelTools').getAttribute('open'), null);
     assert.equal(await page.locator('#editTools').getAttribute('open'), null);
-    await page.locator('#parcelTools summary').click();
+    await page.locator('#parcelTools > summary').click();
     assert.ok(await page.locator('#loadParcelsInput').count());
     const rural = await page.evaluate(() => regionIndex.find(row => /[읍면]$/.test(row.name)));
     await page.evaluate(code => loadRegion(code), rural.code);
