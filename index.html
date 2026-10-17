@@ -13,6 +13,9 @@ body { margin:0; font-family:"Malgun Gothic",sans-serif; color:#263746; }
 h1 { font-size:18px; margin:0 0 12px; }
 label { display:block; font-size:12px; margin-top:12px; }
 select, button { width:100%; padding:10px; margin-top:5px; border:1px solid #d6dfe6; border-radius:7px; background:#f8fafc; font:inherit; font-size:13px; }
+input[type=search], input[type=password] { width:100%; padding:10px; border:1px solid #d6dfe6; border-radius:7px; font:inherit; }
+#addressStatus { font-size:13px; margin:10px 0; overflow-wrap:anywhere; }
+#addressForm small { display:block; margin-top:8px; font-size:11px; }
 button { cursor:pointer; text-align:left; }
 input[type=file] { width:100%; margin:8px 0; }
 a { color:#004c80; font-size:13px; }
@@ -37,11 +40,23 @@ a { color:#004c80; font-size:13px; }
 <label for="viewerFile">통·리·반 JSON</label><input type="file" id="viewerFile" accept=".json" disabled>
 <div id="viewerStatus" role="status">지도 준비 중…</div>
 <h2 id="viewerTitle"></h2><div id="viewerList"></div>
+<form id="addressForm">
+<label for="addressQuery">주소로 통·반 찾기</label>
+<input id="addressQuery" type="search" maxlength="300" autocomplete="off" placeholder="시·군·구를 포함한 전체 주소">
+<label for="addressType">주소 종류</label><select id="addressType"><option value="ROAD">도로명주소</option><option value="PARCEL">지번주소</option></select>
+<details><summary>주소 검색 API 설정</summary>
+<label for="addressKey">브이월드 인증키 · 저장하지 않음</label><input id="addressKey" type="password" autocomplete="off" spellcheck="false">
+<small>검색 시 주소와 키가 브이월드로 전송됩니다. 지오코더 API 권한이 필요합니다.</small></details>
+<button type="submit">주소 검색</button><button id="addressClear" type="button">검색 지우기 · 키 삭제</button>
+<div id="addressStatus" role="status" aria-live="polite"></div>
+</form>
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="map.js"></script>
 <script src="data-format.js"></script>
 <script src="viewer.js"></script>
 <script src="local-work.js"></script>
+<script src="src/vendor/turf.min.js"></script>
+<script src="address-search.js"></script>
 </body>
 </html>
