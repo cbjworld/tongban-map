@@ -41,8 +41,7 @@ async function readRegionJson(path) {
 async function loadRegion(code) {
   var entry = regionIndex.find(function (item) { return item.code === code; });
   if (!entry || (activeRegion && activeRegion.code === code)) return;
-  if ((Object.keys(tongShapes).length || isDrawing || editingTarget || boundaryRing) &&
-      !confirm('지역을 바꾸면 현재 편집 내용이 초기화됩니다. 필요한 JSON을 저장하셨나요?')) {
+  if (activeRegion && !saveLocalWork()) {
     restoreRegionSelection();
     return;
   }
@@ -56,6 +55,8 @@ async function loadRegion(code) {
       entry.parcels ? readRegionJson(entry.code + '-parcels.json') : Promise.resolve(null)
     ]);
     validateBoundary(results[0]);
+    workReady = false;
+    clearTimeout(workTimer);
     if (editingTarget) stopVertexEdit();
     if (isDrawing) cancelDrawing();
     if (isPickingParcel) togglePickMode();
@@ -71,6 +72,7 @@ async function loadRegion(code) {
     document.getElementById('dongNameInput').value = entry.fullName;
     restoreRegionSelection();
     renderAll();
+    restoreLocalWork();
     oMap.stop();
     oMap.fitBounds(boundaryLine.getBounds(), { padding: [30, 30], maxZoom: 16, animate: false });
     populateParcelSection();
@@ -97,7 +99,8 @@ async function initRegions() {
     regionOptions('sggSelect', [], '시군구 선택');
     regionOptions('dongSelect', [], '읍면동 선택');
     oMap.attributionControl.addAttribution('경계: <a href="https://sgis.kostat.go.kr">SGIS</a> · <a href="https://github.com/vuski/admdongkor">vuski/admdongkor</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>');
-    await loadRegion('1117068500');
+    var latest = lastWorkRegion();
+    await loadRegion(regionIndex.some(function (entry) { return entry.code === latest; }) ? latest : '1117068500');
   } catch (error) {
     setDrawStatus('지역 목록을 불러오지 못했습니다. 새로고침해주세요: ' + error.message, 'warn');
   }

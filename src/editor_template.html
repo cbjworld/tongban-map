@@ -254,6 +254,7 @@
 
   </section>
   <footer class="saveBar" aria-label="JSON 저장">
+  <div id="workStatus" role="status" style="font-size:12px;margin-bottom:8px">자동 저장 준비 중…</div>
   <div class="row">
     <button id="exportTongBtn" class="primary" data-unit-text="{unit}·반 저장">통·반 저장</button>
     <button id="exportBoundaryBtn">외곽선 저장</button>
@@ -706,6 +707,7 @@ function clearMapLayers() {
 }
 
 function renderAll() {
+  if (typeof scheduleLocalWork === 'function') scheduleLocalWork();
   clearMapLayers();
 
   if (boundaryFeature) {
@@ -1179,6 +1181,7 @@ function setDrawStatus(html, cls) {
 }
 
 function refreshDrawPreview() {
+  if (typeof scheduleLocalWork === 'function') scheduleLocalWork();
   if (drawPreviewLine) { drawPreviewLine.remove(); drawPreviewLine = null; }
   drawPreviewDots.forEach(function (d) { d.remove(); });
   drawPreviewDots = [];
@@ -1724,5 +1727,7 @@ window.addEventListener('load', bootApp);
 <script src="units.js"></script>
 <script src="regions.js"></script>
 <script src="parcels.js"></script>
+<script src="local-work.js"></script>
+<script src="autosave.js"></script>
 </body>
 </html>

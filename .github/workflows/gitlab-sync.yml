@@ -1,0 +1,35 @@
+name: Sync public GitLab
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gitlab-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Push main without overwriting GitLab history
+        shell: pwsh
+        env:
+          GITLAB_PUSH_TOKEN: ${{ secrets.GITLAB_PUSH_TOKEN }}
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          if (-not $env:GITLAB_PUSH_TOKEN) { throw 'Set the GITLAB_PUSH_TOKEN repository Actions secret first.' }
+          $askpass = Join-Path $env:RUNNER_TEMP 'gitlab-askpass.cmd'
+          '@echo off', 'echo %GITLAB_PUSH_TOKEN%' | Set-Content -LiteralPath $askpass -Encoding ascii
+          $env:GIT_ASKPASS = $askpass
+          try {
+            git -c credential.helper= -c http.sslBackend=schannel push https://conicon@gitlab.aigov.go.kr/conicon/tongban-map.git HEAD:refs/heads/main
+            if ($LASTEXITCODE -ne 0) { throw 'GitLab sync failed. Check token, TLS trust, and divergent history; never force push.' }
+          } finally {
+            Remove-Item -LiteralPath $askpass -ErrorAction SilentlyContinue
+          }

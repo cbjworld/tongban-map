@@ -19,5 +19,5 @@ document.getElementById('unitTypeSelect').addEventListener('change', function ()
   renderAll();
 });
 window.addEventListener('beforeunload', function (event) {
-  if (Object.keys(tongShapes).length || boundaryRing || isDrawing) { event.preventDefault(); event.returnValue = ''; }
+  if (!saveLocalWork()) { event.preventDefault(); event.returnValue = ''; }
 });

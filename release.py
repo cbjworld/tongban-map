@@ -9,13 +9,14 @@ root = Path(__file__).resolve().parent
 build()
 names = [
     'index.html', 'editor.html', 'map.js', 'regions.js', 'viewer.js',
+    'local-work.js', 'autosave.js', 'check-autosave.cjs',
     'data-format.js', 'units.js', 'parcels.js', 'README.md', 'LICENSE',
     'THIRD_PARTY_NOTICES.md', 'PUBLIC_RELEASE_CHECKLIST.md', 'DATA_SOURCES.md',
     'build.py', 'check.py', 'prepare_regions.py', 'release.py', 'package.json',
     'check-delete-point.cjs', 'check-regions.cjs', 'check-release.cjs', '.gitignore',
 ]
 files = [root / name for name in names]
-for directory in ['data', 'licenses', 'src']:
+for directory in ['data', 'licenses', 'src', '.github']:
     files.extend(path for path in (root / directory).rglob('*') if path.is_file())
 secret = re.compile(r'(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)')
 private_keys = {'COT_LEADER_NAME', 'BAN_LEADER_NAMES', 'COT_TEL_NO'}

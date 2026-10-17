@@ -3,6 +3,7 @@ var viewerRegions = [];
 var viewerLayers;
 var viewerRequest = 0;
 var viewerData = null;
+var viewerLocalCode = null;
 
 function viewerStatus(message) { document.getElementById('viewerStatus').textContent = message; }
 function viewerOptions(id, rows, placeholder) {
@@ -55,7 +56,14 @@ async function loadViewerRegion(code) {
   var row = viewerRegions.find(function (entry) { return entry.code === code; });
   if (!row) return;
   var request = ++viewerRequest;
+  viewerLocalCode = code;
   try {
+    var saved = readLocalWork(code);
+    if (saved) {
+      renderViewer(saved.value.parsed, saved.value.parsed.head.BOUNDARY, saved.value.parsed.head.DONG_NAME);
+      viewerStatus('이 브라우저의 내 작업 · 완성된 경계');
+      return;
+    }
     var response = await fetch('data/regions/' + code + '.json');
     if (!response.ok) throw new Error('HTTP ' + response.status);
     var boundary = validateBoundary(await response.json());
@@ -75,7 +83,7 @@ async function bootApp() {
     var provinces = new Map();
     viewerRegions.forEach(function (row) { provinces.set(row.sido, { code: row.sido, name: row.sidoName }); });
     viewerOptions('sidoSelect', Array.from(provinces.values()), '시도 선택');
-    var initial = viewerRegions.find(function (row) { return row.code === '1117068500'; });
+    var initial = viewerRegions.find(function (row) { return row.code === lastWorkRegion(); }) || viewerRegions.find(function (row) { return row.code === '1117068500'; });
     document.getElementById('sidoSelect').value = initial.sido;
     viewerDistricts();
     document.getElementById('sggSelect').value = initial.sgg;
@@ -92,6 +100,7 @@ document.getElementById('viewerFile').addEventListener('change', async function 
   var file = this.files[0];
   if (!file) return;
   var request = ++viewerRequest;
+  viewerLocalCode = null;
   try {
     var data = parseMapData(await readJsonUpload(file));
     var boundary = data.head.BOUNDARY || null;
@@ -117,3 +126,6 @@ document.getElementById('viewerFile').addEventListener('change', async function 
   this.value = '';
 });
 window.addEventListener('load', bootApp);
+window.addEventListener('storage', function (event) {
+  if (viewerLocalCode && event.key === workPrefix + viewerLocalCode) loadViewerRegion(viewerLocalCode);
+});
