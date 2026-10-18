@@ -34,6 +34,7 @@ function saveLocalWork() {
 }
 function scheduleLocalWork() {
   if (!workReady) return;
+  if (typeof recordEdit === 'function') recordEdit();
   workStatus('저장 중…');
   clearTimeout(workTimer);
   workTimer = setTimeout(saveLocalWork, 300);
@@ -74,6 +75,7 @@ function restoreLocalWork() {
     workStatus('자동 복구 실패: ' + error.message + ' · 기존 저장본 유지');
   }
   workReady = true;
+  if (typeof resetEditHistory === 'function') resetEditHistory();
 }
 document.getElementById('panel').addEventListener('input', scheduleLocalWork);
 document.getElementById('panel').addEventListener('change', scheduleLocalWork);

@@ -132,6 +132,8 @@
   .saveBar { position:sticky; bottom:0; z-index:2; padding:16px 20px; background:#fff; border-top:1px solid #e6ecef; }
   #panel .saveBar .row { margin:0; }
   #panel .saveBar button { flex:1; }
+  .editingTools { padding:12px 20px; border-bottom:1px solid #e6ecef; }
+  #panel .editingTools .row { margin:0; }
   @media (max-width:600px) {
     #panel { width:100%; border-radius:18px 18px 0 0; padding:0; max-height:45vh; }
     .panelHeader { padding:16px 20px; }
@@ -149,6 +151,9 @@
   <h1 data-unit-text="{unit}·반 경계 편집기">통·반 경계 편집기</h1>
   <a href="index.html">지도 보기</a>
   </header>
+  <div class="editingTools"><div class="row"><button id="historyUndo" disabled>실행 취소</button><button id="historyRedo" disabled>다시 실행</button><button id="checkGeometry">경계 검사</button></div>
+  <div id="editingStatus" class="status" role="status" aria-live="polite"></div>
+  </div>
   <details open id="regionTools"><summary>지역 선택</summary>
   <div class="regionGrid"><div>
   <label class="fieldLabel" for="unitTypeSelect">구분</label>
@@ -1735,6 +1740,7 @@ window.addEventListener('load', bootApp);
 <script src="parcels.js"></script>
 <script src="local-work.js"></script>
 <script src="autosave.js"></script>
+<script src="editing-tools.js"></script>
 <script src="vworld.js"></script>
 </body>
 </html>
