@@ -13,6 +13,7 @@ names = [
     'vworld.js', 'check-vworld.cjs',
     'address-search.js', 'check-address.cjs',
     'editing-tools.js', 'check-editing.cjs',
+    'viewer-tools.js', 'check-viewer-tools.cjs',
     'data-format.js', 'units.js', 'parcels.js', 'README.md', 'LICENSE',
     'THIRD_PARTY_NOTICES.md', 'PUBLIC_RELEASE_CHECKLIST.md', 'DATA_SOURCES.md',
     'build.py', 'check.py', 'prepare_regions.py', 'release.py', 'package.json',

@@ -3,6 +3,7 @@ var addressCancel = null;
 var addressRequest = 0;
 
 function clearAddressSearch() {
+  if (typeof resetBatchSearch === 'function') resetBatchSearch();
   addressRequest++;
   if (addressCancel) addressCancel();
   if (addressMarker) addressMarker.remove();
@@ -64,7 +65,9 @@ function geocodeAddress(address, type, key) {
         };
         var message = response && response.status === 'NOT_FOUND' ? '주소를 찾지 못했습니다. 주소 종류와 전체 주소를 확인하세요.' :
           messages[code] || '주소 조회 실패 · 지오코더 API 권한·인증키·등록 URL·사용량을 확인하세요.';
-        finish(new Error(message));
+        var error = new Error(message);
+        error.code = response && response.status === 'NOT_FOUND' ? 'NOT_FOUND' : code;
+        finish(error);
         return;
       }
       var result = response.result && response.result.point;

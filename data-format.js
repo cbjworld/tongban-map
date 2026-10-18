@@ -3,6 +3,13 @@ function requireNumber(value, label) {
   return Number(value);
 }
 
+function csvCell(value) {
+  var text = value == null ? '' : String(value);
+  if (/^\s*[=+@-]/.test(text)) text = "'" + text;
+  if (/[",\r\n]/.test(text)) text = '"' + text.replace(/"/g, '""') + '"';
+  return text;
+}
+
 function requireText(value, label, maxLength) {
   if (typeof value !== 'string' || value.length > maxLength) throw new Error(label + ' 형식이 올바르지 않습니다.');
   return value;

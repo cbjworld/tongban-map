@@ -1391,12 +1391,6 @@ function downloadJson(obj, filename) {
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
 }
 
-function csvCell(v) {
-  var s = (v === null || v === undefined) ? '' : String(v);
-  if (/^[\s]*[=+@-]/.test(s)) s = "'" + s;
-  if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
-  return s;
-}
 
 // 엑셀에서 한글이 깨지지 않도록 UTF-8 BOM을 앞에 붙인다.
 function downloadCsv(rows, filename) {

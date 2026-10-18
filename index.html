@@ -22,14 +22,27 @@ a { color:#004c80; font-size:13px; }
 :focus-visible { outline:2px solid #004c80; outline-offset:2px; }
 #viewerStatus { font-size:12px; margin:12px 0; overflow-wrap:anywhere; }
 #viewerTitle { font-size:14px; }
+#printHeading { display:none; }
+#batchStatus { font-size:13px; overflow-wrap:anywhere; }
+#batchTools { margin-top:12px; }
+#batchTools small { display:block; margin:8px 0; line-height:1.5; }
 @media (max-width:600px) {
   #panel { top:auto; bottom:0; left:0; width:100%; max-height:42vh; border-radius:12px 12px 0 0; }
   #gisMap { bottom:42vh; }
   select, button { font-size:16px; min-height:42px; }
 }
+@page { size:A4 landscape; margin:10mm; }
+@media print {
+  #panel, .leaflet-control-zoom, .leaflet-popup-pane, .leaflet-marker-pane { display:none !important; }
+  #printHeading { display:block; margin:0 0 5mm; font-size:12px; }
+  #printHeading h1 { margin-bottom:2mm; }
+  #gisMap { position:relative; inset:auto; width:100%; height:165mm; break-inside:avoid; }
+  .leaflet-container { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+}
 </style>
 </head>
 <body>
+<header id="printHeading"><h1 id="printTitle"></h1><div>통·리·반 경계 · 점선: 반 · 참고용, 공식 행정구역 증명 아님</div></header>
 <div id="gisMap"></div>
 <main id="panel">
 <h1>통·리·반 지도</h1>
@@ -50,6 +63,16 @@ a { color:#004c80; font-size:13px; }
 <button type="submit">주소 검색</button><button id="addressClear" type="button">검색 지우기 · 키 삭제</button>
 <div id="addressStatus" role="status" aria-live="polite"></div>
 </form>
+<details id="batchTools"><summary>주소 CSV 일괄 조회</summary>
+<label for="batchFile">주소 열만 있는 UTF-8 CSV · 최대 100건</label><input id="batchFile" type="file" accept=".csv,text/csv">
+<small>첫 줄은 주소 또는 address입니다. 선택한 주소 종류와 위 인증키를 사용합니다. 시작하면 각 주소와 키가 브이월드로 전송됩니다. 결과는 참고 판정이며 자동 저장하지 않습니다.</small>
+<button id="batchStart" type="button">브이월드로 주소 전송 · 조회 시작</button>
+<button id="batchCancel" type="button" disabled>조회 취소</button>
+<button id="batchExport" type="button" disabled>결과 CSV 저장</button>
+<button id="batchClear" type="button">CSV · 결과 지우기</button>
+<div id="batchStatus" role="status" aria-live="polite"></div>
+</details>
+<button id="printMap" type="button">현재 화면 인쇄 · PDF</button>
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="map.js"></script>
@@ -58,5 +81,6 @@ a { color:#004c80; font-size:13px; }
 <script src="local-work.js"></script>
 <script src="src/vendor/turf.min.js"></script>
 <script src="address-search.js"></script>
+<script src="viewer-tools.js"></script>
 </body>
 </html>
