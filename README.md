@@ -72,6 +72,8 @@ GitHub `main`을 기준으로 GitHub Pages를 배포하고, `.github/workflows/g
 
 명세: [브이월드 연속지적도 2.0](https://www.vworld.kr/dev/v4dv_2ddataguide2_s002.do?svcIde=cadastral). 원자료와 이용조건은 [DATA_SOURCES.md](DATA_SOURCES.md)를 확인하세요.
 
+조회가 실패하면 화면 안내에 따라 키 전체 복사, 현재 사이트와 등록 URL 일치, 키 만료·중지 및 연속지적도 활용 권한을 확인하세요. 호출 한도 초과 시 연결을 해제하고, 조회 범위 초과 시 지도를 확대하세요. API 오류 원문은 키 노출 방지를 위해 표시하지 않습니다. 네트워크 오류만으로 키나 권한 문제를 확정할 수는 없습니다.
+
 ## 개인정보·정확도
 
 ### 주소로 통·리·반 찾기

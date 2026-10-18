@@ -1,6 +1,39 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
 const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
+async function checkRestart() {
+  const parent = path.resolve(os.tmpdir());
+  const profile = await fs.mkdtemp(path.join(parent, 'tongban-restart-'));
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(profile, { channel: 'msedge', headless: true });
+    await context.route('**://tile.openstreetmap.org/**', route => route.abort());
+    const editor = await context.newPage();
+    await editor.goto(base + 'editor.html');
+    await editor.waitForFunction(() => workReady);
+    await editor.evaluate(() => {
+      tongShapes = { 1: { rings: [[[127,37],[127.001,37],[127,37.001],[127,37]]], bans: [], banShapes: {}, name: '재시작 복구' } };
+      renderAll();
+      if (!saveLocalWork()) throw new Error('Save failed');
+    });
+    await context.close();
+    context = await chromium.launchPersistentContext(profile, { channel: 'msedge', headless: true });
+    await context.route('**://tile.openstreetmap.org/**', route => route.abort());
+    const viewer = await context.newPage();
+    await viewer.goto(base);
+    await viewer.waitForFunction(() => viewerData);
+    assert.equal(await viewer.evaluate(() => viewerData.shapes[1].name), '재시작 복구');
+    console.log('PASS browser process restart restores saved map in viewer');
+  } finally {
+    if (context) await context.close();
+    assert.equal(path.dirname(path.resolve(profile)), parent);
+    assert.ok(path.basename(profile).startsWith('tongban-restart-'));
+    await fs.rm(profile, { recursive: true, force: true });
+  }
+}
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   try {
@@ -65,4 +98,5 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
     assert.deepEqual(errors, []);
     console.log('PASS autosave/recovery, unfinished drawing, viewer live updates, deletion, regional isolation, multi-tab conflict, quota and corrupt-data preservation');
   } finally { await browser.close(); }
+  await checkRestart();
 })().catch(error => { console.error(error); process.exitCode = 1; });

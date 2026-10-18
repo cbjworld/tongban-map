@@ -58,11 +58,13 @@ function parseOnlineParcelResponse(payload) {
   if (response.status !== 'OK') {
     var code = response.error && response.error.code;
     var messages = {
-      INVALID_KEY: '인증키를 확인하세요.', INCORRECT_KEY: '인증키의 등록 URL과 현재 사이트 주소를 확인하세요.',
-      UNAVAILABLE_KEY: '사용할 수 없는 인증키입니다.', OVER_REQUEST_LIMIT: '일일 호출 한도를 초과했습니다.',
+      INVALID_KEY: '인증키를 확인하세요. 발급받은 키 전체를 다시 붙여넣으세요.',
+      INCORRECT_KEY: '인증키의 등록 URL을 확인하세요. 현재 사이트: ' + new URL('./', location.href).href,
+      UNAVAILABLE_KEY: '사용할 수 없는 인증키입니다. 만료·중지 여부와 연속지적도 API 활용 권한을 확인하세요.',
+      OVER_REQUEST_LIMIT: '일일 호출 한도를 초과했습니다. 자동 조회를 연결 해제하고 한도 초기화 후 다시 시도하세요.',
       INVALID_RANGE: '조회 범위를 더 줄여주세요.'
     };
-    throw new Error(messages[code] || '브이월드 요청이 거절되었습니다. API 설정을 확인하세요.');
+    throw new Error(messages[code] || '브이월드 요청이 거절되었습니다. 인증키의 연속지적도 API 활용 권한·등록 URL·사용량을 확인하세요.');
   }
   var collection = response.result && response.result.featureCollection;
   var pages = Number(response.page && response.page.total);
@@ -125,7 +127,7 @@ async function loadOnlineParcels() {
     onlineParcelStatus(unique.size + '필지 · 조회 전용 · 저장·편입 제외');
   } catch (error) {
     if (sequence !== onlineParcelSequence || region !== activeRegion) return;
-    if (error.name === 'TypeError' || error.name === 'SyntaxError') onlineParcelStatus('조회 실패 · 네트워크/CORS 또는 API 응답을 확인하세요.');
+    if (error.name === 'TypeError' || error.name === 'SyntaxError') onlineParcelStatus('조회 실패 · 네트워크 또는 API 응답 형식 문제입니다. 잠시 후 다시 연결하세요.');
     else if (error.name === 'AbortError') onlineParcelStatus('조회 시간 초과 · 다시 연결하세요.');
     else onlineParcelStatus(error.message);
   } finally {

@@ -35,6 +35,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
       assert.match(callback, /^__tongbanAddress\d+$/);
       let response = { status: 'OK', result: { point: { x: '127.005', y: '37.005' } } };
       if (scenario === 'empty') response = { status: 'NOT_FOUND' };
+      if (scenario.startsWith('error:')) response = { status: 'ERROR', error: { code: scenario.slice(6), text: 'secret-do-not-display' } };
       if (scenario === 'invalid') response.result.point.x = 'NaN';
       if (scenario === 'slow') await new Promise(resolve => setTimeout(resolve, 400));
       await route.fulfill({ contentType: 'application/javascript', body: callback + '(' + JSON.stringify({ response }) + ')' }).catch(() => {});
@@ -53,6 +54,15 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
       await page.waitForFunction(() => !addressCancel);
       assert.match(await page.locator('#addressStatus').textContent(), name === 'empty' ? /찾지 못/ : /올바르지/);
       assert.equal(await page.evaluate(() => addressMarker), null);
+    }
+    for (const [code, expected] of [['INVALID_KEY', /키 전체/], ['INCORRECT_KEY', /현재 사이트:/], ['UNAVAILABLE_KEY', /활용 권한/], ['OVER_REQUEST_LIMIT', /한도/], ['UNKNOWN', /활용|권한/]]) {
+      scenario = 'error:' + code;
+      await page.locator('#addressQuery').press('Enter');
+      await page.waitForFunction(() => !addressCancel);
+      const message = await page.locator('#addressStatus').textContent();
+      assert.match(message, expected);
+      assert.ok(!message.includes('secret-do-not-display'));
+      if (code === 'INCORRECT_KEY') assert.ok(message.includes(base));
     }
     scenario = 'slow';
     await page.locator('#addressQuery').press('Enter');

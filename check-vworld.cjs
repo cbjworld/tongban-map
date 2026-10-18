@@ -52,6 +52,13 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
     await page.locator('#vworldConnect').click();
     await page.waitForFunction(() => document.getElementById('vworldStatus').textContent.includes('인증키를 확인'));
     assert.equal(await page.evaluate(() => onlineParcelLayer), null);
+    const diagnostics = await page.evaluate(() => ['INVALID_KEY', 'INCORRECT_KEY', 'UNAVAILABLE_KEY', 'OVER_REQUEST_LIMIT', 'INVALID_RANGE', 'UNKNOWN'].map(code => {
+      try { parseOnlineParcelResponse({ response: { status: 'ERROR', error: { code, text: 'secret-do-not-display' } } }); }
+      catch (error) { return error.message; }
+    }));
+    for (const [index, expected] of [/키 전체/, /현재 사이트:/, /활용 권한/, /한도/, /범위/, /활용 권한/].entries()) assert.match(diagnostics[index], expected);
+    assert.ok(diagnostics[1].includes(base));
+    assert.ok(diagnostics.every(message => !message.includes('secret-do-not-display')));
     scenario = 'huge';
     await page.locator('#vworldConnect').click();
     await page.waitForFunction(() => document.getElementById('vworldStatus').textContent.includes('너무 많'));

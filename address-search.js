@@ -56,9 +56,14 @@ function geocodeAddress(address, type, key) {
       var response = payload && payload.response;
       if (!response || response.status !== 'OK') {
         var code = response && response.error && response.error.code;
+        var messages = {
+          INVALID_KEY: '인증키를 확인하세요. 발급받은 키 전체를 다시 붙여넣으세요.',
+          INCORRECT_KEY: '인증키의 등록 URL을 확인하세요. 현재 사이트: ' + new URL('./', location.href).href,
+          UNAVAILABLE_KEY: '사용할 수 없는 인증키입니다. 만료·중지 여부와 지오코더 API 활용 권한을 확인하세요.',
+          OVER_REQUEST_LIMIT: '일일 호출 한도를 초과했습니다. 한도 초기화 후 다시 검색하세요.'
+        };
         var message = response && response.status === 'NOT_FOUND' ? '주소를 찾지 못했습니다. 주소 종류와 전체 주소를 확인하세요.' :
-          code === 'INVALID_KEY' ? '인증키를 확인하세요.' :
-          code === 'INCORRECT_KEY' ? '인증키의 등록 URL을 확인하세요.' : '주소 조회 실패 · 지오코더 API 권한·인증키·사용량을 확인하세요.';
+          messages[code] || '주소 조회 실패 · 지오코더 API 권한·인증키·등록 URL·사용량을 확인하세요.';
         finish(new Error(message));
         return;
       }
