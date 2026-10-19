@@ -43,7 +43,6 @@ function moveEditHistory(direction) {
   try {
     if (editingTarget) stopVertexEdit();
     if (isPickingParcel) togglePickMode();
-    clearOnlineParcels();
     tongShapes = saved.shapes;
     boundaryFeature = saved.boundary;
     boundaryRing = saved.ring;

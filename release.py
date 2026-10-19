@@ -10,8 +10,6 @@ build()
 names = [
     'index.html', 'editor.html', 'map.js', 'regions.js', 'viewer.js',
     'local-work.js', 'autosave.js', 'check-autosave.cjs',
-    'vworld.js', 'check-vworld.cjs',
-    'address-search.js', 'check-address.cjs',
     'editing-tools.js', 'check-editing.cjs',
     'viewer-tools.js', 'check-viewer-tools.cjs',
     'data-format.js', 'units.js', 'parcels.js', 'README.md', 'LICENSE',

@@ -208,12 +208,6 @@
 
   </details>
   <details id="parcelTools"><summary>필지로 편입 · 이동</summary>
-  <details id="onlineParcelTools"><summary>온라인 필지 조회</summary>
-  <label for="vworldKey">브이월드 인증키</label>
-  <input id="vworldKey" type="password" autocomplete="off" spellcheck="false" placeholder="키 입력 · 저장하지 않음" style="width:100%;box-sizing:border-box">
-  <div class="row"><button id="vworldConnect" type="button">연결 · 화면 조회</button><button id="vworldDisconnect" type="button">연결 해제</button></div>
-  <div id="vworldStatus" class="status" role="status">조회 전용 · 지도 이동 시 자동 갱신</div>
-  </details>
   <div class="row"><label class="fileBtn" for="loadParcelsInput">필지 GeoJSON</label><input type="file" id="loadParcelsInput" accept=".json,.geojson"></div>
   <div id="parcelImportStatus" class="status" aria-live="polite"></div>
   <div id="parcelSectionUnavailable" class="hint" style="display:none;">이 지역의 필지 GeoJSON을 불러오세요.</div>
@@ -1735,6 +1729,5 @@ window.addEventListener('load', bootApp);
 <script src="local-work.js"></script>
 <script src="autosave.js"></script>
 <script src="editing-tools.js"></script>
-<script src="vworld.js"></script>
 </body>
 </html>

@@ -23,7 +23,6 @@ function viewerDongs() {
   viewerOptions('dongSelect', viewerRegions.filter(function (row) { return row.sgg === document.getElementById('sggSelect').value; }), '읍면동 선택');
 }
 function renderViewer(data, boundary, title) {
-  clearAddressSearch();
   var layers = L.featureGroup();
   var list = document.createDocumentFragment();
   if (boundary) L.geoJSON(boundary, { style: { color: '#4b6ebe', fill: false, weight: 3 } }).addTo(layers);
@@ -54,7 +53,6 @@ function renderViewer(data, boundary, title) {
   if (layers.getBounds().isValid()) viewerMap.fitBounds(layers.getBounds(), { padding: [30, 30], maxZoom: 16, animate: false });
 }
 async function loadViewerRegion(code) {
-  clearAddressSearch();
   var row = viewerRegions.find(function (entry) { return entry.code === code; });
   if (!row) return;
   var request = ++viewerRequest;
@@ -78,7 +76,6 @@ async function bootApp() {
   try {
     if (!window.L) throw new Error('지도 라이브러리를 불러오지 못했습니다.');
     viewerMap = createMap(document.getElementById('gisMap'));
-    viewerMap.attributionControl.addAttribution('주소 검색: <a href="https://www.vworld.kr/">브이월드</a>');
     viewerMap.attributionControl.addAttribution('경계: <a href="https://github.com/vuski/admdongkor">SGIS · vuski/admdongkor · CC BY 4.0</a>');
     var response = await fetch('data/regions/index.json');
     if (!response.ok) throw new Error('지역 목록 HTTP ' + response.status);
@@ -102,7 +99,6 @@ document.getElementById('dongSelect').addEventListener('change', function () { l
 document.getElementById('viewerFile').addEventListener('change', async function () {
   var file = this.files[0];
   if (!file) return;
-  clearAddressSearch();
   var request = ++viewerRequest;
   viewerLocalCode = null;
   try {

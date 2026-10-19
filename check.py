@@ -12,6 +12,7 @@ for name in ('index.html', 'editor.html'):
     assert '__KAKAO_KEY__' not in content, name
     assert 'getSitePassword' not in content, name
     assert 'ghLoadBtn' not in content and 'ghSaveBtn' not in content, name
+    assert all(marker not in content for marker in ('vworldKey', 'addressForm', 'batchTools', 'vworld.js', 'address-search.js')), name
     assert ('regions.js' if name == 'editor.html' else 'viewer.js') in content and 'sidoSelect' in content, name
     assert (root / name).stat().st_size < 1_000_000, name
     assert 'map.js' in content and 'leaflet@1.9.4' in content, name
