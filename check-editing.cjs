@@ -20,6 +20,17 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
     assert.equal(await page.evaluate(() => Object.keys(tongShapes).length), 0);
     await page.locator('#historyRedo').click();
     assert.equal(await page.evaluate(() => tongShapes[1].name), '원본');
+    await page.locator('body').press('Control+z');
+    assert.equal(await page.evaluate(() => Object.keys(tongShapes).length), 0);
+    await page.locator('body').press('Control+Shift+z');
+    assert.equal(await page.evaluate(() => tongShapes[1].name), '원본');
+    await page.evaluate(() => {
+      setMode('boundary'); startDrawing();
+      drawPoints = [[127,37],[127.01,37],[127.01,37.01]];
+      handleMapClick({ latlng: L.latLng(37,127) });
+      if (isDrawing || !boundaryRing) throw new Error('Closing near first point failed');
+    });
+    await page.locator('#historyUndo').click();
     await page.evaluate(() => { delete tongShapes[1]; renderAll(); });
     await page.locator('#historyUndo').click();
     assert.equal(await page.evaluate(() => tongShapes[1].name), '원본');

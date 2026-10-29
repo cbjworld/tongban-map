@@ -6,16 +6,16 @@ window.addEventListener('beforeprint', function () {
   viewerMap.closePopup();
   viewerMap.invalidateSize({ animate: false });
   viewerMap.fitBounds(printView.bounds, { animate: false });
-  if (viewerLayers) viewerLayers.eachLayer(function (layer) { if (layer.openTooltip) layer.openTooltip(); });
+  if (viewerLayers) viewerLayers.eachLayer(function (layer) { if (layer.eachLayer) layer.eachLayer(function (part) { if (part.openTooltip) part.openTooltip(); }); });
 });
 window.addEventListener('afterprint', function () {
   if (!printView) return;
   viewerMap.invalidateSize({ animate: false });
   viewerMap.setView(printView.center, printView.zoom, { animate: false });
   printView = null;
-  if (viewerLayers) viewerLayers.eachLayer(function (layer) {
-    if (layer.getTooltip && layer.getTooltip() && !layer.getTooltip().options.permanent) layer.closeTooltip();
-  });
+  if (viewerLayers) viewerLayers.eachLayer(function (layer) { if (layer.eachLayer) layer.eachLayer(function (part) {
+    if (part.getTooltip && part.getTooltip() && !part.getTooltip().options.permanent) part.closeTooltip();
+  }); });
 });
 document.getElementById('printMap').addEventListener('click', function () {
   if (viewerMap) window.print();

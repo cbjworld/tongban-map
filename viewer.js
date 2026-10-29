@@ -30,18 +30,31 @@ function renderViewer(data, boundary, title) {
   Object.keys(data ? data.shapes : {}).forEach(function (number) {
     var shape = data.shapes[number];
     var label = number + unit + (shape.name ? ' · ' + shape.name : '');
+    var group = L.featureGroup().addTo(layers);
     var geometry = { type: 'MultiPolygon', coordinates: shape.rings.map(function (ring) { return [ring]; }) };
-    var polygon = L.geoJSON(geometry, { style: { color: 'hsl(' + Number(number) * 47 % 360 + ',62%,34%)', fillOpacity: 0.3, weight: 2 } }).addTo(layers);
+    var polygon = L.geoJSON(geometry, { style: { color: 'hsl(' + Number(number) * 47 % 360 + ',62%,34%)', fillOpacity: 0.3, weight: 2 } }).addTo(group);
     var tooltip = document.createElement('span');
     tooltip.textContent = label;
     polygon.bindTooltip(tooltip, { permanent: true, direction: 'center' });
     var button = document.createElement('button');
     button.textContent = label;
     button.addEventListener('click', function () { viewerMap.fitBounds(polygon.getBounds(), { padding: [20, 20], maxZoom: 18 }); });
-    list.appendChild(button);
+    var checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    checkbox.setAttribute('aria-label', label + ' 표시');
+    checkbox.addEventListener('change', function () {
+      if (checkbox.checked) layers.addLayer(group);
+      else layers.removeLayer(group);
+    });
+    var row = document.createElement('div');
+    row.className = 'viewerUnit';
+    row.appendChild(checkbox);
+    row.appendChild(button);
+    list.appendChild(row);
     Object.keys(shape.banShapes).forEach(function (ban) {
       L.geoJSON({ type: 'MultiPolygon', coordinates: shape.banShapes[ban].rings.map(function (ring) { return [ring]; }) },
-        { style: { color: '#333', weight: 1.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(layers);
+        { style: { color: '#333', weight: 1.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(group);
     });
   });
   if (viewerLayers) viewerLayers.remove();

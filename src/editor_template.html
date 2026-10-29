@@ -589,9 +589,18 @@ function populateParcelSection() {
   }
   available.style.display = 'block';
   unavailable.style.display = 'none';
+  updateParcelSuggestions();
+}
+
+function updateParcelSuggestions() {
   var datalist = document.getElementById('parcelDatalist');
-  datalist.innerHTML = '';
-  parcels.forEach(function (p) {
+  datalist.replaceChildren();
+  var parcels = currentDongParcels() || [];
+  var core = jibunCore(document.getElementById('parcelSearchInput').value);
+  if (!core) return;
+  parcels.filter(function (parcel) { return jibunCore(parcel.j).indexOf(core) === 0; })
+    .sort(function (first, second) { return jibunCore(first.j).localeCompare(jibunCore(second.j), 'ko', { numeric: true }); })
+    .slice(0, 30).forEach(function (p) {
     var opt = document.createElement('option');
     opt.value = p.j;
     datalist.appendChild(opt);
@@ -616,6 +625,8 @@ function findSelectedParcel() {
   var feature = parcelToTurfFeature(parcel);
   lastFoundParcel = { j: parcel.j, feature: feature };
   renderParcelHighlight();
+  var bounds = L.geoJSON(feature).getBounds();
+  if (bounds.isValid()) oMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
   document.getElementById('parcelSearchInput').value = parcel.j;
   var owner = findParcelOwner(feature);
   if (owner.tongNum == null) {
@@ -1219,6 +1230,10 @@ function mapClickWhileDrawing(mouseEvent) {
 // 지도 클릭을 상황에 맞게 나눠 처리한다: 지번 선택 모드가 켜져 있으면 그쪽을, 아니면 기존 그리기를 처리한다.
 function handleMapClick(mouseEvent) {
   if (isPickingParcel) { handleParcelPickClick(mouseEvent); return; }
+  if (isDrawing && drawPoints.length >= 3) {
+    var firstPoint = oMap.latLngToContainerPoint([drawPoints[0][1], drawPoints[0][0]]);
+    if (firstPoint.distanceTo(oMap.latLngToContainerPoint(mouseEvent.latlng)) <= 15) { finishDrawing(); return; }
+  }
   mapClickWhileDrawing(mouseEvent);
 }
 
@@ -1675,6 +1690,15 @@ document.getElementById('editStartBtn').addEventListener('click', startVertexEdi
 document.getElementById('editStopBtn').addEventListener('click', stopVertexEdit);
 document.getElementById('deletePointBtn').addEventListener('click', deleteSelectedPoint);
 document.getElementById('parcelFindBtn').addEventListener('click', findSelectedParcel);
+document.getElementById('parcelSearchInput').addEventListener('input', updateParcelSuggestions);
+document.getElementById('editTargetSelect').addEventListener('change', function () {
+  var parts = this.value.split(':');
+  var shape = tongShapes[parts[1]];
+  var rings = parts[0] === 'boundary' ? (boundaryRing ? [boundaryRing] : []) :
+    parts[0] === 'tong' && shape ? shape.rings :
+    parts[0] === 'ban' && shape && shape.banShapes[parts[2]] ? shape.banShapes[parts[2]].rings : [];
+  if (rings.length) oMap.fitBounds(L.latLngBounds(rings.flat().map(function (point) { return [point[1], point[0]]; })), { padding: [50, 50], maxZoom: 18 });
+});
 document.getElementById('assignParcelBtn').addEventListener('click', assignSelectedParcel);
 document.getElementById('parcelPickBtn').addEventListener('click', togglePickMode);
 document.getElementById('parcelSearchInput').addEventListener('keydown', function (ev) {
@@ -1690,6 +1714,18 @@ document.getElementById('assignBanInput').addEventListener('keydown', function (
 // 점을 선택한 상태에서 Delete/Backspace 키로도 삭제할 수 있게 한다.
 // 단, 입력창(동 이름/통 번호/반 목록)에 커서가 있을 때는 글자 지우기로 동작해야 하므로 그때는 무시한다.
 document.addEventListener('keydown', function (ev) {
+  var focused = document.activeElement;
+  var tagName = focused && focused.tagName;
+  if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.isComposing &&
+      tagName !== 'INPUT' && tagName !== 'TEXTAREA' && tagName !== 'SELECT' && !(focused && focused.isContentEditable)) {
+    var key = ev.key.toLowerCase();
+    if (key === 'z' || key === 'y') {
+      ev.preventDefault();
+      if (isDrawing && key === 'z' && !ev.shiftKey) undoDrawPoint();
+      else if (!isDrawing) moveEditHistory(key === 'y' || ev.shiftKey ? 1 : -1);
+      return;
+    }
+  }
   if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
   if (!editingTarget || !selectedVertex) return;
   var tag = document.activeElement && document.activeElement.tagName;
