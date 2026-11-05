@@ -32,7 +32,7 @@ function renderViewer(data, boundary, title) {
     var label = number + unit + (shape.name ? ' · ' + shape.name : '');
     var group = L.featureGroup().addTo(layers);
     var geometry = { type: 'MultiPolygon', coordinates: shape.rings.map(function (ring) { return [ring]; }) };
-    var polygon = L.geoJSON(geometry, { style: { color: 'hsl(' + Number(number) * 47 % 360 + ',62%,34%)', fillOpacity: 0.3, weight: 2 } }).addTo(group);
+    var polygon = L.geoJSON(geometry, { style: { color: '#1450b7', fillColor: '#8cb6f2', fillOpacity: 0.12, weight: 3 } }).addTo(group);
     var tooltip = document.createElement('span');
     tooltip.textContent = label;
     var center = shapeLabelPoint(shape.rings, shape.labelPoint);
@@ -59,7 +59,7 @@ function renderViewer(data, boundary, title) {
     list.appendChild(row);
     Object.keys(shape.banShapes).forEach(function (ban) {
       L.geoJSON({ type: 'MultiPolygon', coordinates: shape.banShapes[ban].rings.map(function (ring) { return [ring]; }) },
-        { style: { color: '#333', weight: 1.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(group);
+        { style: { color: '#c97700', weight: 2.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(group);
     });
   });
   if (viewerLayers) viewerLayers.remove();

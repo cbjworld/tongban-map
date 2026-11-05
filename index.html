@@ -9,6 +9,7 @@
 * { box-sizing:border-box; }
 body { margin:0; font-family:"Malgun Gothic",sans-serif; color:#263746; }
 #gisMap { position:absolute; inset:0; }
+#gisMap .leaflet-tile-pane { filter:brightness(1.12) saturate(.72); }
 #panel { position:absolute; top:12px; left:12px; z-index:1000; width:300px; padding:16px; border-radius:10px; background:white; box-shadow:0 2px 10px #0003; max-height:calc(100vh - 24px); overflow:auto; }
 h1 { font-size:18px; margin:0 0 12px; }
 label { display:block; font-size:12px; margin-top:12px; }
@@ -54,7 +55,7 @@ a { color:#004c80; font-size:13px; }
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="map.js?v=fa9e985519ce"></script>
 <script src="data-format.js?v=cb0894d9206e"></script>
-<script src="viewer.js?v=138b9fb86cfa"></script>
+<script src="viewer.js?v=87e8ac445b0d"></script>
 <script src="local-work.js?v=bf4804f3eeae"></script>
 <script src="src/vendor/turf.min.js?v=12344ebb728f"></script>
 <script src="viewer-tools.js?v=baff0a154d2c"></script>

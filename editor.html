@@ -67,14 +67,14 @@
     display:inline-block; width:max-content;
     font-family:"NanumGothic","Malgun Gothic","sans-serif";
     text-align:center; color:#fff; font-size:11px; font-weight:700;
-    background-color:rgba(0,76,128,.92); border-radius:8px; padding:2px 6px;
+    background-color:rgba(24,75,158,.96); border-radius:5px; padding:3px 7px;
     white-space:nowrap; transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(0,0,0,.3);
   }
   .ban-label {
     display:inline-block; width:max-content;
     font-family:"NanumGothic","Malgun Gothic","sans-serif";
     text-align:center; color:#333; font-size:10px; font-weight:700;
-    background-color:rgba(255,255,255,.9); border:1px solid #999; border-radius:6px; padding:1px 5px;
+    background-color:rgba(255,252,245,.96); border:1px solid #cf8924; border-radius:5px; padding:2px 6px;
     white-space:nowrap; transform:translate(-50%,-50%); box-shadow:0 1px 2px rgba(0,0,0,.2);
   }
   #shapeList li.banItem { padding-left:16px; }
@@ -136,9 +136,13 @@
   #panel .saveBar button { flex:1; }
   .editingTools { padding:12px 20px; border-bottom:1px solid #e6ecef; }
   #panel .editingTools .row { margin:0; }
-  #gisMap { left:340px; }
-  #panel { top:0; bottom:0; left:0; width:340px; max-height:none; border-radius:0; color:#1e3442; background:#f8f8f5; border-right:1px solid #d9e0df; box-shadow:none; font-size:13px; }
-  .panelHeader { padding:20px; background:#fff; border-bottom:1px solid #dce3e2; }
+  .appBar { position:absolute; z-index:1001; inset:0 0 auto; height:54px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:#fff; border-bottom:1px solid #d6dfdf; }
+  .appBar h1 { margin:0; color:#17384e; font-size:17px; letter-spacing:-.04em; }
+  .appBar a { color:#20565e; font-size:13px; font-weight:700; text-decoration:none; padding:8px 12px; border:1px solid #cddadb; border-radius:5px; }
+  #gisMap { top:54px; left:340px; }
+  #gisMap .leaflet-tile-pane { filter:brightness(1.12) saturate(.72); }
+  #panel { top:54px; bottom:0; left:0; width:340px; max-height:none; border-radius:0; color:#1e3442; background:#fff; border-right:1px solid #d9e0df; box-shadow:none; font-size:13px; }
+  .panelHeader { padding:16px 20px; background:#fff; border-bottom:1px solid #dce3e2; }
   #panel h1 { color:#18384d; font-size:18px; font-weight:750; letter-spacing:-.04em; }
   .panelHeader a { color:#245765; font-weight:700; padding:7px 10px; border:1px solid #c9d8d8; border-radius:5px; text-decoration:none; }
   #panel details, #panel .shapeSection, .editingTools, .saveBar { border-color:#dfe5e2; }
@@ -160,6 +164,10 @@
   .saveBar { background:#fff; box-shadow:0 -4px 12px #203d490d; }
   #workStatus { color:#566e77; }
   #shapeList li { border-color:#e3e9e7; }
+  .regionGrid { grid-template-columns:1fr; gap:0; }
+  .regionGrid > div { display:grid; grid-template-columns:68px minmax(0,1fr); align-items:center; }
+  #panel .regionGrid label.fieldLabel { margin:0; width:auto; }
+  #panel .regionGrid .row { margin:4px 0; }
   @media (max-width:600px) {
     #gisMap { left:0; }
     #panel { top:auto; bottom:0; left:0; width:100%; border-radius:14px 14px 0 0; padding:0; max-height:45vh; border-right:0; box-shadow:0 -6px 24px #203d4926; }
@@ -170,18 +178,14 @@
 </head>
 <body>
 
+<header class="appBar"><h1 data-unit-text="{unit}·반 지도 편집">통·반 지도 편집</h1><a href="index.html">지도 보기</a></header>
 <div id="gisMap"></div>
 <div id="loading">지도를 준비하는 중입니다…</div>
 
 <div id="panel">
   <header class="panelHeader">
-  <h1 data-unit-text="{unit}·반 경계 편집기">통·반 경계 편집기</h1>
-  <a href="index.html">지도 보기</a>
+  <h1>편집 도구</h1>
   </header>
-  <div class="editingTools"><div class="row"><button id="historyUndo" disabled>실행 취소</button><button id="historyRedo" disabled>다시 실행</button><button id="checkGeometry">경계 검사</button></div>
-  <div class="row"><button id="compareEdits" type="button">이전 변경 비교</button><button id="moveLabels" type="button" aria-pressed="false">라벨 이동</button></div>
-  <div id="editingStatus" class="status" role="status" aria-live="polite"></div>
-  </div>
   <details open id="regionTools"><summary>지역 선택</summary>
   <div class="regionGrid"><div>
   <label class="fieldLabel" for="unitTypeSelect">구분</label>
@@ -235,6 +239,10 @@
   <div id="drawStatus" class="status"></div>
 
   </details>
+  <div class="editingTools"><div class="row"><button id="historyUndo" disabled>실행 취소</button><button id="historyRedo" disabled>다시 실행</button><button id="checkGeometry">경계 검사</button></div>
+  <div class="row"><button id="compareEdits" type="button">이전 변경 비교</button><button id="moveLabels" type="button" aria-pressed="false">라벨 이동</button></div>
+  <div id="editingStatus" class="status" role="status" aria-live="polite"></div>
+  </div>
   <details id="parcelTools"><summary>필지로 편입 · 이동</summary>
   <div class="row"><label class="fileBtn" for="loadParcelsInput">필지 GeoJSON</label><input type="file" id="loadParcelsInput" accept=".json,.geojson"></div>
   <div id="parcelImportStatus" class="status" aria-live="polite"></div>
@@ -343,8 +351,7 @@ var midpointMarkerImg = null;
 var colorCache = {};
 function tongColor(t) {
   if (colorCache[t]) return colorCache[t];
-  var hue = (t * 47) % 360;
-  var c = { stroke: 'hsl(' + hue + ', 62%, 34%)', fill: 'hsl(' + hue + ', 70%, 55%)' };
+  var c = { stroke: '#1450b7', fill: '#8cb6f2' };
   colorCache[t] = c;
   return c;
 }
@@ -776,8 +783,8 @@ function renderAll() {
       return ring.map(function (p) { return L.latLng(p[1], p[0]); });
     });
     var polygon = mapPolygon({
-      map: oMap, path: flatPaths, strokeWeight: 2, strokeColor: colors.stroke,
-      strokeOpacity: 0.9, fillColor: colors.fill, fillOpacity: 0.35, zIndex: 3
+      map: oMap, path: flatPaths, strokeWeight: 3, strokeColor: colors.stroke,
+      strokeOpacity: 1, fillColor: colors.fill, fillOpacity: 0.12, zIndex: 3
     });
     tongPolygons.push(polygon);
 
@@ -812,8 +819,8 @@ function renderAll() {
           return ring.map(function (p) { return L.latLng(p[1], p[0]); });
         });
         var banPolygon = mapPolygon({
-          map: oMap, path: banFlatPaths, strokeWeight: 1.5, strokeColor: '#222',
-          strokeOpacity: 0.85, strokeStyle: 'shortdash', fillColor: '#000', fillOpacity: 0, zIndex: 4
+          map: oMap, path: banFlatPaths, strokeWeight: 2.5, strokeColor: '#c97700',
+          strokeOpacity: 1, strokeStyle: 'shortdash', fillColor: '#000', fillOpacity: 0, zIndex: 4
         });
         banPolygons.push(banPolygon);
 
