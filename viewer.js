@@ -29,15 +29,17 @@ function renderViewer(data, boundary, title) {
   var unit = data && data.head.UNIT_TYPE === 'ri' ? '리' : '통';
   Object.keys(data ? data.shapes : {}).forEach(function (number) {
     var shape = data.shapes[number];
+    var colors = unitColors(number);
     var label = number + unit + (shape.name ? ' · ' + shape.name : '');
     var group = L.featureGroup().addTo(layers);
     var geometry = { type: 'MultiPolygon', coordinates: shape.rings.map(function (ring) { return [ring]; }) };
-    var polygon = L.geoJSON(geometry, { pane: 'viewerTong', style: { color: '#1450b7', fillColor: '#8cb6f2', fillOpacity: 0.12, weight: 3 } }).addTo(group);
+    var polygon = L.geoJSON(geometry, { pane: 'viewerTong', style: { color: colors.stroke, fillColor: colors.fill, fillOpacity: 0.25, weight: 3 } }).addTo(group);
     var tooltip = document.createElement('span');
     tooltip.textContent = label;
+    tooltip.style.backgroundColor = colors.label;
     var center = shapeLabelPoint(shape.rings, shape.labelPoint);
     L.circleMarker([center[1], center[0]], { radius: 0, opacity: 0, fillOpacity: 0, interactive: false })
-      .bindTooltip(tooltip, { permanent: true, direction: 'center' }).addTo(group);
+      .bindTooltip(tooltip, { permanent: true, direction: 'center', className: 'unitTooltip' }).addTo(group);
     var button = document.createElement('button');
     button.textContent = label;
     button.addEventListener('click', function () {

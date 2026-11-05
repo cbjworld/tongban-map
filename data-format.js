@@ -3,6 +3,11 @@ function requireNumber(value, label) {
   return Number(value);
 }
 
+function unitColors(number) {
+  var hue = (Number(number) * 137.508) % 360;
+  return { stroke: '#1450b7', fill: 'hsl(' + hue + ', 68%, 62%)', label: 'hsl(' + hue + ', 70%, 25%)' };
+}
+
 function shapeLabelPoint(rings, manual) {
   if (manual && rings.some(function (ring) { return turf.booleanPointInPolygon(turf.point(manual), turf.polygon([ring])); })) return manual;
   var largest = rings.map(function (ring) { return turf.polygon([ring]); }).reduce(function (best, polygon) {

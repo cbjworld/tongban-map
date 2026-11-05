@@ -12,6 +12,18 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
     await page.waitForFunction(() => workReady);
     await page.evaluate(() => {
       const ring = [[127,37],[127.01,37],[127.01,37.01],[127,37.01],[127,37]];
+      tongShapes = { 1: { rings: [ring], bans: [], banShapes: {}, name: '' }, 2: { rings: [ring], bans: [], banShapes: {}, name: '' } };
+      renderAll();
+      if (tongPolygons[0].options.fillColor === tongPolygons[1].options.fillColor) throw Error('Unit fills must differ');
+      const firstLabel = tongLabels[0].getElement().querySelector('.tong-label');
+      const secondLabel = tongLabels[1].getElement().querySelector('.tong-label');
+      if (firstLabel.style.backgroundColor === secondLabel.style.backgroundColor) throw Error('Unit labels must differ');
+      const expected = document.createElement('span'); expected.style.backgroundColor = unitColors(1).label;
+      if (tongPolygons[0].options.fillColor !== unitColors(1).fill || firstLabel.style.backgroundColor !== expected.style.backgroundColor) throw Error('Unit colors inconsistent');
+      if (tongPolygons[0].options.color !== tongPolygons[1].options.color) throw Error('Tong outline changed');
+    });
+    await page.evaluate(() => {
+      const ring = [[127,37],[127.01,37],[127.01,37.01],[127,37.01],[127,37]];
       tongShapes = { 1: { rings: [ring], bans: [1], banShapes: { 1: { rings: [ring] } }, name: '' } };
       renderAll();
       if (Number(oMap.getPane(tongPolygons[0].options.pane).style.zIndex) <= Number(oMap.getPane(banPolygons[0].options.pane).style.zIndex)) throw Error('Tong boundary is not above ban');

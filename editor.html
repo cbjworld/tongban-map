@@ -313,7 +313,7 @@ var t,e,n="function"==typeof Symbol?Symbol:{},r=n.iterator||"@@iterator",i=n.toS
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="map.js?v=fa9e985519ce"></script>
-<script src="data-format.js?v=cb0894d9206e"></script>
+<script src="data-format.js?v=aa7f4c3bd1d8"></script>
 
 <script type="text/javascript">
 //<![CDATA[
@@ -348,12 +348,8 @@ var vertexMarkerImg = null;
 var vertexMarkerImgSelected = null;
 var midpointMarkerImg = null;
 
-var colorCache = {};
 function tongColor(t) {
-  if (colorCache[t]) return colorCache[t];
-  var c = { stroke: '#1450b7', fill: '#8cb6f2' };
-  colorCache[t] = c;
-  return c;
+  return unitColors(t);
 }
 
 /* ---------- 경계 자르기 / 겹침 정리 (turf.js) ----------
@@ -784,14 +780,14 @@ function renderAll() {
     });
     var polygon = mapPolygon({
       map: oMap, path: flatPaths, strokeWeight: 3, strokeColor: colors.stroke,
-      strokeOpacity: 1, fillColor: colors.fill, fillOpacity: 0.12, zIndex: 5
+      strokeOpacity: 1, fillColor: colors.fill, fillOpacity: 0.25, zIndex: 5
     });
     tongPolygons.push(polygon);
 
     var center = shapeLabelPoint(shape.rings, shape.labelPoint);
     var label = mapLabel({
       position: L.latLng(center[1], center[0]),
-      content: '<div class="tong-label">' + escapeHtml(unitName(tongNum)) + '</div>',
+      content: '<div class="tong-label" style="background-color:' + colors.label + '">' + escapeHtml(unitName(tongNum)) + '</div>',
       draggable: typeof labelsMovable !== 'undefined' && labelsMovable,
       zIndex: 5
     });
