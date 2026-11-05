@@ -6,6 +6,9 @@ function lastWorkRegion() {
 function readLocalWork(code) {
   var raw = localStorage.getItem(workPrefix + code);
   if (!raw) return null;
+  return parseLocalWork(raw, code);
+}
+function parseLocalWork(raw, code) {
   var work = JSON.parse(raw);
   if (work.version !== 1 || work.data.head.REGION_CODE !== code) throw new Error('저장 데이터 형식 오류');
   work.parsed = parseMapData(work.data);

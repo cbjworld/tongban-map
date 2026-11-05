@@ -79,7 +79,8 @@ async function checkRestart() {
     const second = await context.newPage();
     await second.goto(base + 'editor.html');
     await second.waitForFunction(() => workReady);
-    await editor.evaluate(() => { tongShapes[2].name = '먼저 저장'; saveLocalWork(); });
+    assert.equal(await editor.evaluate(() => { tongShapes[2].name = '먼저 저장'; return saveLocalWork(); }), true, 'first tab must successfully save before testing conflict');
+    await second.waitForFunction(() => localStorage.getItem(workPrefix + activeRegion.code) !== workRaw);
     assert.equal(await second.evaluate(() => { tongShapes[2].name = '덮어쓰기'; return saveLocalWork(); }), false);
     assert.equal(await editor.evaluate(() => readLocalWork(activeRegion.code).value.parsed.shapes[2].name), '먼저 저장');
     assert.equal(await editor.evaluate(() => {

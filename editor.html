@@ -134,6 +134,7 @@
   .saveBar { position:sticky; bottom:0; z-index:2; padding:16px 20px; background:#fff; border-top:1px solid #e6ecef; }
   #geometryResults button { display:block; width:100%; margin:5px 0; text-align:left; }
   #historyList { max-height:140px; overflow:auto; padding-left:24px; font-size:12px; }
+  #panelToggle { display:none; }
   #panel .saveBar .row { margin:0; }
   #panel .saveBar button { flex:1; }
   .editingTools { padding:12px 20px; border-bottom:1px solid #e6ecef; }
@@ -175,6 +176,10 @@
     #panel { top:auto; bottom:0; left:0; width:100%; border-radius:14px 14px 0 0; padding:0; max-height:45vh; border-right:0; box-shadow:0 -6px 24px #203d4926; }
     .panelHeader { padding:16px 20px; }
     #panel input[type=text], #panel input[type=number], #panel select { font-size:16px; }
+    #panelToggle { display:block; }
+    #panel.collapsed > :not(.panelHeader) { display:none; }
+    body.panel-collapsed #gisMap { bottom:65px; }
+    #panel .row { flex-wrap:wrap; }
   }
 </style>
 </head>
@@ -187,6 +192,7 @@
 <div id="panel">
   <header class="panelHeader">
   <h1>편집 도구</h1>
+  <button id="panelToggle" type="button" aria-expanded="true" aria-label="편집 도구 접기">접기</button>
   </header>
   <details open id="regionTools"><summary>지역 선택</summary>
   <div class="regionGrid"><div>
@@ -215,9 +221,11 @@
     <input type="file" id="loadBoundaryInput" accept=".json,.geojson">
   </div>
   <div id="loadStatus" class="status"></div>
+  <div class="row"><button id="restoreImport" type="button">불러오기 전 작업 복구</button></div>
 
   </details>
   <details open id="drawTools"><summary>경계 그리기</summary>
+  <label><input id="snapEnabled" type="checkbox" checked> 기존 경계에 점 맞추기</label>
   <div class="modeToggle">
     <button id="modeTongBtn" class="active" data-unit-text="{unit} 경계">통 경계</button>
     <button id="modeBanBtn">반 경계</button>
@@ -986,23 +994,23 @@ function refreshBanParentTongOptions() {
 function makeVertexMarkerImage(selected) {
   if (selected) {
     if (vertexMarkerImgSelected) return vertexMarkerImgSelected;
-    var svgSel = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">' +
-      '<circle cx="8" cy="8" r="6" fill="#ffb300" stroke="#fff" stroke-width="2"/></svg>';
-    vertexMarkerImgSelected = mapIcon('data:image/svg+xml;base64,' + btoa(svgSel), L.point(16, 16), { offset: L.point(8, 8) });
+    var svgSel = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28">' +
+      '<circle cx="14" cy="14" r="6" fill="#ffb300" stroke="#fff" stroke-width="2"/></svg>';
+    vertexMarkerImgSelected = mapIcon('data:image/svg+xml;base64,' + btoa(svgSel), L.point(28, 28), { offset: L.point(14, 14) });
     return vertexMarkerImgSelected;
   }
   if (vertexMarkerImg) return vertexMarkerImg;
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14">' +
-    '<circle cx="7" cy="7" r="5" fill="#e91e63" stroke="#fff" stroke-width="2"/></svg>';
-  vertexMarkerImg = mapIcon('data:image/svg+xml;base64,' + btoa(svg), L.point(14, 14), { offset: L.point(7, 7) });
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28">' +
+    '<circle cx="14" cy="14" r="5" fill="#e91e63" stroke="#fff" stroke-width="2"/></svg>';
+  vertexMarkerImg = mapIcon('data:image/svg+xml;base64,' + btoa(svg), L.point(28, 28), { offset: L.point(14, 14) });
   return vertexMarkerImg;
 }
 
 function makeMidpointMarkerImage() {
   if (midpointMarkerImg) return midpointMarkerImg;
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">' +
-    '<circle cx="5" cy="5" r="4" fill="#2196f3" stroke="#fff" stroke-width="1.5"/></svg>';
-  midpointMarkerImg = mapIcon('data:image/svg+xml;base64,' + btoa(svg), L.point(10, 10), { offset: L.point(5, 5) });
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">' +
+    '<circle cx="13" cy="13" r="4" fill="#2196f3" stroke="#fff" stroke-width="1.5"/></svg>';
+  midpointMarkerImg = mapIcon('data:image/svg+xml;base64,' + btoa(svg), L.point(26, 26), { offset: L.point(13, 13) });
   return midpointMarkerImg;
 }
 
@@ -1146,10 +1154,17 @@ function renderVertexMarkers() {
           var currentRings = getEditingRings();
           if (!currentRings || !currentRings[partIndex]) return;
           var r = currentRings[partIndex];
-          var n = r.length;
-          var wasClosed = (vertexIndex === 0 && n > 1 && r[0][0] === r[n - 1][0] && r[0][1] === r[n - 1][1]);
-          r[vertexIndex] = newPt;
-          if (wasClosed) r[n - 1] = [newPt[0], newPt[1]];
+          var neighbors = [];
+          if (editingTarget.kind === 'tong') Object.keys(tongShapes).forEach(function (key) {
+            if (Number(key) !== editingTarget.tongNum) neighbors = neighbors.concat(tongShapes[key].rings);
+          });
+          if (editingTarget.kind === 'ban') Object.keys(tongShapes[editingTarget.tongNum].banShapes || {}).forEach(function (key) {
+            if (Number(key) !== editingTarget.banNum) neighbors = neighbors.concat(tongShapes[editingTarget.tongNum].banShapes[key].rings);
+          });
+          if (!moveSharedVertex(r, vertexIndex, neighbors, newPt)) {
+            setEditStatus('경계가 교차하거나 면적이 없어 이동할 수 없습니다.', 'warn');
+            renderVertexMarkers(); return;
+          }
           markEdit('점 이동');
           afterVertexChange();
         });
@@ -1287,12 +1302,13 @@ function refreshDrawPreview() {
 
 function mapClickWhileDrawing(mouseEvent) {
   if (!isDrawing) return;
+  var point = snapDrawingPoint(mouseEvent.latlng);
   var lastPoint = drawPoints[drawPoints.length - 1];
-  if (lastPoint && lastPoint[0] === mouseEvent.latlng.lng && lastPoint[1] === mouseEvent.latlng.lat) {
+  if (lastPoint && lastPoint[0] === point[0] && lastPoint[1] === point[1]) {
     setDrawStatus('같은 위치의 점은 추가할 수 없습니다.', 'warn');
     return;
   }
-  drawPoints.push([mouseEvent.latlng.lng, mouseEvent.latlng.lat]);
+  drawPoints.push(point);
   refreshDrawPreview();
   document.getElementById('drawUndoBtn').disabled = drawPoints.length === 0;
   document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
@@ -1694,6 +1710,7 @@ function applyTongJsonData(data, sourceLabel) {
   }
   var loaded = parsed.shapes;
   if (Object.keys(tongShapes).length && !confirm('현재 경계를 불러온 파일로 교체할까요?')) return;
+  if (!saveImportRecovery()) return;
   if (editingTarget) stopVertexEdit();
   if (isDrawing) cancelDrawing();
   unitType = parsed.head.UNIT_TYPE || (activeRegion && /[읍면]$/.test(activeRegion.name) ? 'ri' : 'tong');
@@ -1712,6 +1729,7 @@ function applyTongJsonData(data, sourceLabel) {
 document.getElementById('loadTongInput').addEventListener('change', function (ev) {
   var file = ev.target.files && ev.target.files[0];
   if (!file) return;
+  ev.target.value = '';
   loadJsonFile(file, function (err, data) {
     var el = document.getElementById('loadStatus');
     if (err) { el.className = 'status warn'; el.textContent = '읽기 실패: ' + err.message; return; }
@@ -1724,11 +1742,13 @@ document.getElementById('loadTongInput').addEventListener('change', function (ev
 document.getElementById('loadBoundaryInput').addEventListener('change', function (ev) {
   var file = ev.target.files && ev.target.files[0];
   if (!file) return;
+  ev.target.value = '';
   loadJsonFile(file, function (err, data) {
     var el = document.getElementById('loadStatus');
     if (err) { el.className = 'status warn'; el.textContent = '읽기 실패: ' + err.message; return; }
     if (data && data.type === 'Feature') {
       try { validateBoundary(data); } catch (error) { el.textContent = error.message; return; }
+      if (!saveImportRecovery()) return;
       if (editingTarget) stopVertexEdit();
       boundaryFeature = data;
       boundaryRing = null;
@@ -1745,6 +1765,7 @@ document.getElementById('loadBoundaryInput').addEventListener('change', function
       return [parseFloat(p[1]), parseFloat(p[0])];
     });
     validateRings([importedRing]);
+    if (!saveImportRecovery()) return;
     boundaryFeature = null;
     boundaryRing = importedRing;
     if (editingTarget) stopVertexEdit();
@@ -1838,15 +1859,24 @@ function bootApp() {
 }
 
 window.addEventListener('load', bootApp);
+document.getElementById('panelToggle').addEventListener('click', function () {
+  var collapsed = document.getElementById('panel').classList.toggle('collapsed');
+  document.body.classList.toggle('panel-collapsed', collapsed);
+  this.textContent = collapsed ? '도구 열기' : '접기';
+  this.setAttribute('aria-expanded', String(!collapsed));
+  this.setAttribute('aria-label', collapsed ? '편집 도구 열기' : '편집 도구 접기');
+  if (oMap) requestAnimationFrame(function () { oMap.invalidateSize(); });
+});
 
 //]]>
 </script>
 <script src="units.js?v=13cfa38843e1"></script>
 <script src="regions.js?v=5c31db969238"></script>
 <script src="parcels.js?v=4f731a7d7c59"></script>
-<script src="local-work.js?v=bf4804f3eeae"></script>
-<script src="autosave.js?v=a441bcf4fa98"></script>
-<script src="editing-tools.js?v=0d28b1d0c09f"></script>
+<script src="local-work.js?v=bcb8796e3800"></script>
+<script src="autosave.js?v=3d94a3a31149"></script>
+<script src="editing-tools.js?v=6f31c152ccf1"></script>
+<script src="topology.js?v=aafa8f1baed4"></script>
 <script src="share-bundle.js?v=bd6a1cfdcbdb"></script>
 </body>
 </html>

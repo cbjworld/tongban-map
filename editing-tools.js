@@ -112,6 +112,14 @@ function inspectMapGeometry(shapes, locations) {
       var parent = geometry(shapes[number].rings);
       if (!parent) { problems.push(label + ' 경계 없음'); return; }
       parents.push({ label: label, feature: parent });
+      if (locations && (boundaryFeature || boundaryRing)) {
+        var region = boundaryFeature || turf.polygon([boundaryRing]);
+        var beyond = turf.difference(turf.featureCollection([parent, region]));
+        if (beyond && turf.area(beyond) > 0.01) {
+          problems.push(label + ' 지역 외곽선 밖');
+          locations.push({ feature: beyond, label: label + ' 지역 외곽선 밖', color: '#d23b33', edit: 'tong:' + number });
+        }
+      }
       var children = [];
       Object.keys(shapes[number].banShapes || {}).forEach(function (ban) {
         var childLabel = label + ' ' + ban + '반';
@@ -122,11 +130,19 @@ function inspectMapGeometry(shapes, locations) {
           var outside = turf.difference(turf.featureCollection([child, parent]));
           if (outside && turf.area(outside) > 0.01) {
             problems.push(childLabel + ' 상위 구역 밖');
-            if (locations) locations.push({ feature: outside, label: childLabel + ' 상위 구역 밖', color: '#d23b33' });
+            if (locations) locations.push({ feature: outside, label: childLabel + ' 상위 구역 밖', color: '#d23b33', edit: 'ban:' + number + ':' + ban });
           }
         } catch (error) { problems.push(childLabel + ' 검사 실패 · 경계 형식을 확인하세요'); }
       });
       overlaps(children);
+      if (locations) {
+        var covered = children.length === 0 ? null : children.length === 1 ? children[0].feature : turf.union(turf.featureCollection(children.map(function (child) { return child.feature; })));
+        var missing = covered ? turf.difference(turf.featureCollection([parent, covered])) : parent;
+        if (missing && turf.area(missing) > 0.01) {
+          problems.push(label + ' 반 미지정 영역');
+          locations.push({ feature: missing, label: label + ' 반 미지정 영역', color: '#e99500', drawBan: number });
+        }
+      }
     } catch (error) { problems.push(label + ' 검사 실패 · 자기 교차 또는 경계 형식을 확인하세요'); }
   });
   try { overlaps(parents); } catch (error) { problems.push('구역 간 겹침 검사 실패'); }
@@ -161,6 +177,25 @@ document.getElementById('checkGeometry').addEventListener('click', function () {
     button.textContent = item.label + ' 위치 보기';
     button.addEventListener('click', function () { oMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 18 }); });
     document.getElementById('geometryResults').appendChild(button);
+    if (item.edit || item.drawBan) {
+      var fix = document.createElement('button'); fix.type = 'button';
+      fix.textContent = item.label + (item.edit ? ' 편집하기' : ' 반 그리기');
+      fix.addEventListener('click', function () {
+        if (isDrawing || isPickingParcel) { status.textContent = '현재 그리기 또는 필지 선택을 먼저 마치세요.'; return; }
+        oMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 18 });
+        if (editingTarget) stopVertexEdit();
+        if (item.edit) {
+          document.getElementById('editTools').open = true;
+          document.getElementById('editTargetSelect').value = item.edit;
+          startVertexEdit();
+        } else {
+          document.getElementById('drawTools').open = true;
+          setMode('ban'); document.getElementById('banParentTongSelect').value = item.drawBan;
+          setDrawStatus('반 번호를 입력하고 그리기를 시작하세요.');
+        }
+      });
+      document.getElementById('geometryResults').appendChild(fix);
+    }
   });
   status.textContent = problems.length ? problems.join(' · ') : '겹침·상위 구역 이탈·자기 교차 없음 (공식 경계 정확도 검증 아님)';
 });

@@ -24,6 +24,43 @@ function workSnapshot() {
     parent: document.getElementById('banParentTongSelect').value, ban: document.getElementById('banNumInput').value
   } : null });
 }
+function saveImportRecovery() {
+  if (!workReady || !activeRegion || workBlocked) { workStatus('복구 준비가 안 되어 불러올 수 없습니다.'); return false; }
+  try {
+    if (localStorage.getItem(workPrefix + activeRegion.code) !== workRaw) throw new Error('다른 탭에서 변경됨');
+    var snapshot = workSnapshot();
+    parseLocalWork(snapshot, activeRegion.code);
+    localStorage.setItem(workPrefix + 'recovery:' + activeRegion.code, snapshot);
+    return true;
+  } catch (error) { workStatus('불러오기 전 복구본 저장 실패: ' + error.message + ' · JSON 백업을 확인하세요'); return false; }
+}
+document.getElementById('restoreImport').addEventListener('click', function () {
+  if (!workReady || !activeRegion || workBlocked) return;
+  try {
+    var raw = localStorage.getItem(workPrefix + 'recovery:' + activeRegion.code);
+    if (!raw) { workStatus('이 지역에 불러오기 전 복구본이 없습니다.'); return; }
+    var saved = parseLocalWork(raw, activeRegion.code).value;
+    if (!confirm('불러오기 전 작업으로 복구할까요? 현재 작업도 복구본으로 보관합니다.')) return;
+    if (!saveImportRecovery()) return;
+    if (editingTarget) stopVertexEdit();
+    if (isDrawing) cancelDrawing();
+    tongShapes = saved.parsed.shapes;
+    boundaryFeature = saved.parsed.head.BOUNDARY || null; boundaryRing = null;
+    unitType = saved.parsed.head.UNIT_TYPE || unitType;
+    document.getElementById('dongNameInput').value = saved.parsed.head.DONG_NAME;
+    updateUnitLabels(); markEdit('불러오기 전 작업 복구'); renderAll();
+    if (saved.draft) {
+      setMode(saved.draft.mode); startDrawing(); drawPoints = saved.draft.points;
+      document.getElementById('tongNumInput').value = saved.draft.tong || '';
+      document.getElementById('banParentTongSelect').value = saved.draft.parent || '';
+      document.getElementById('banNumInput').value = saved.draft.ban || '';
+      refreshDrawPreview();
+      document.getElementById('drawUndoBtn').disabled = !drawPoints.length;
+      document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
+    }
+    if (saveLocalWork()) workStatus('불러오기 전 작업 복구됨');
+  } catch (error) { workStatus('복구 실패: ' + error.message + ' · 기존 작업 유지'); }
+});
 function saveLocalWork() {
   clearTimeout(workTimer);
   if (!workReady || !activeRegion) return !workBlocked;
