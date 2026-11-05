@@ -12,6 +12,12 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
     await page.waitForFunction(() => workReady);
     await page.evaluate(() => {
       const ring = [[127,37],[127.01,37],[127.01,37.01],[127,37.01],[127,37]];
+      tongShapes = { 1: { rings: [ring], bans: [1], banShapes: { 1: { rings: [ring] } }, name: '' } };
+      renderAll();
+      if (Number(oMap.getPane(tongPolygons[0].options.pane).style.zIndex) <= Number(oMap.getPane(banPolygons[0].options.pane).style.zIndex)) throw Error('Tong boundary is not above ban');
+    });
+    await page.evaluate(() => {
+      const ring = [[127,37],[127.01,37],[127.01,37.01],[127,37.01],[127,37]];
       tongShapes = { 1: { rings: [ring], bans: [], banShapes: {}, name: '' } };
       renderAll();
     });

@@ -32,7 +32,7 @@ function renderViewer(data, boundary, title) {
     var label = number + unit + (shape.name ? ' · ' + shape.name : '');
     var group = L.featureGroup().addTo(layers);
     var geometry = { type: 'MultiPolygon', coordinates: shape.rings.map(function (ring) { return [ring]; }) };
-    var polygon = L.geoJSON(geometry, { style: { color: '#1450b7', fillColor: '#8cb6f2', fillOpacity: 0.12, weight: 3 } }).addTo(group);
+    var polygon = L.geoJSON(geometry, { pane: 'viewerTong', style: { color: '#1450b7', fillColor: '#8cb6f2', fillOpacity: 0.12, weight: 3 } }).addTo(group);
     var tooltip = document.createElement('span');
     tooltip.textContent = label;
     var center = shapeLabelPoint(shape.rings, shape.labelPoint);
@@ -59,7 +59,7 @@ function renderViewer(data, boundary, title) {
     list.appendChild(row);
     Object.keys(shape.banShapes).forEach(function (ban) {
       L.geoJSON({ type: 'MultiPolygon', coordinates: shape.banShapes[ban].rings.map(function (ring) { return [ring]; }) },
-        { style: { color: '#c97700', weight: 2.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(group);
+        { pane: 'viewerBan', style: { color: '#c97700', weight: 2.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(group);
     });
   });
   if (viewerLayers) viewerLayers.remove();
@@ -94,6 +94,8 @@ async function bootApp() {
   try {
     if (!window.L) throw new Error('지도 라이브러리를 불러오지 못했습니다.');
     viewerMap = createMap(document.getElementById('gisMap'));
+    viewerMap.createPane('viewerBan').style.zIndex = 410;
+    viewerMap.createPane('viewerTong').style.zIndex = 411;
     viewerMap.attributionControl.addAttribution('경계: <a href="https://github.com/vuski/admdongkor">SGIS · vuski/admdongkor · CC BY 4.0</a>');
     var response = await fetch('data/regions/index.json');
     if (!response.ok) throw new Error('지역 목록 HTTP ' + response.status);

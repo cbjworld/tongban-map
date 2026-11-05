@@ -17,6 +17,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
       const rings = [[[127,37],[127.01,37],[127.01,37.01],[127,37.01],[127,37]]];
       renderViewer({ head: { UNIT_TYPE: 'tong' }, shapes: { 1: { rings, labelPoint: [127.002,37.002], name: '', banShapes: { 2: { rings } } } } }, null, '인쇄 시험 지도');
       const group = viewerLayers.getLayers()[0];
+      if (Number(viewerMap.getPane('viewerTong').style.zIndex) <= Number(viewerMap.getPane('viewerBan').style.zIndex)) throw Error('Viewer tong boundary is not above ban');
       const marker = group.getLayers().find(layer => layer instanceof L.CircleMarker);
       if (!marker || !turf.booleanPointInPolygon(turf.point([marker.getLatLng().lng, marker.getLatLng().lat]), turf.polygon(rings))) throw Error('Viewer label outside boundary');
       if (marker.getLatLng().lng !== 127.002 || marker.getLatLng().lat !== 37.002) throw Error('Viewer ignored saved label');
