@@ -1224,10 +1224,16 @@ function refreshDrawPreview() {
 
 function mapClickWhileDrawing(mouseEvent) {
   if (!isDrawing) return;
+  var lastPoint = drawPoints[drawPoints.length - 1];
+  if (lastPoint && lastPoint[0] === mouseEvent.latlng.lng && lastPoint[1] === mouseEvent.latlng.lat) {
+    setDrawStatus('같은 위치의 점은 추가할 수 없습니다.', 'warn');
+    return;
+  }
   drawPoints.push([mouseEvent.latlng.lng, mouseEvent.latlng.lat]);
   refreshDrawPreview();
   document.getElementById('drawUndoBtn').disabled = drawPoints.length === 0;
   document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
+  setDrawStatus('점 ' + drawPoints.length + '개' + (drawPoints.length < 3 ? ' · 최소 3개 필요' : ' · 완성 가능'));
 }
 
 // 지도 클릭을 상황에 맞게 나눠 처리한다: 지번 선택 모드가 켜져 있으면 그쪽을, 아니면 기존 그리기를 처리한다.
@@ -1241,6 +1247,10 @@ function handleMapClick(mouseEvent) {
 }
 
 function setMode(newMode) {
+  if (isDrawing && newMode !== mode) {
+    setDrawStatus('그리기를 완성하거나 취소한 뒤 구분을 변경하세요.', 'warn');
+    return;
+  }
   mode = newMode;
   document.getElementById('modeTongBtn').classList.toggle('active', mode === 'tong');
   document.getElementById('modeBanBtn').classList.toggle('active', mode === 'ban');
@@ -1264,10 +1274,12 @@ function startDrawing() {
 }
 
 function undoDrawPoint() {
+  if (!isDrawing || !drawPoints.length) return;
   drawPoints.pop();
   refreshDrawPreview();
   document.getElementById('drawUndoBtn').disabled = drawPoints.length === 0;
   document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
+  setDrawStatus('점 ' + drawPoints.length + '개' + (drawPoints.length < 3 ? ' · 최소 3개 필요' : ' · 완성 가능'));
 }
 
 function resetDrawButtons() {

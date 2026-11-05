@@ -10,6 +10,18 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
     await page.route('**://tile.openstreetmap.org/**', route => route.abort());
     await page.goto(base + 'editor.html');
     await page.waitForFunction(() => workReady);
+    await page.evaluate(() => { setMode('boundary'); startDrawing(); });
+    await page.evaluate(() => mapClickWhileDrawing({ latlng: L.latLng(37, 127) }));
+    await page.evaluate(() => mapClickWhileDrawing({ latlng: L.latLng(37, 127) }));
+    assert.equal(await page.evaluate(() => drawPoints.length), 1);
+    await page.locator('#modeTongBtn').click();
+    assert.equal(await page.evaluate(() => mode), 'boundary');
+    assert.match(await page.locator('#drawStatus').textContent(), /완성하거나 취소/);
+    await page.evaluate(() => undoDrawPoint());
+    assert.match(await page.locator('#drawStatus').textContent(), /점 0개/);
+    await page.evaluate(() => cancelDrawing());
+    await page.locator('#modeTongBtn').click();
+    assert.equal(await page.evaluate(() => mode), 'tong');
     await page.evaluate(() => {
       tongShapes = {};
       resetEditHistory();
