@@ -1,6 +1,7 @@
 """Run with python check.py after changing templates or the build."""
 import hashlib
 import json
+import re
 from pathlib import Path
 from build import build
 
@@ -16,6 +17,9 @@ for name in ('index.html', 'editor.html'):
     assert ('regions.js' if name == 'editor.html' else 'viewer.js') in content and 'sidoSelect' in content, name
     assert (root / name).stat().st_size < 1_000_000, name
     assert 'map.js' in content and 'leaflet@1.9.4' in content, name
+    for path, digest in re.findall(r'<script src="((?:src/vendor/)?[\w.-]+\.js)\?v=([0-9a-f]{12})"></script>', content):
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest()[:12] == digest, path
+    assert 'map.js?v=' in content, name
     if name == 'editor.html':
         assert 'window.addEventListener(\'load\', bootApp)' in content, name
     else:

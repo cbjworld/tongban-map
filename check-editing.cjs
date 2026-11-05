@@ -55,6 +55,8 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8000/';
       tongShapes = { 1: { rings: [small, large], bans: [], banShapes: {}, name: '' } };
       renderAll();
       const marker = tongLabels[0].getLatLng();
+      const box = tongLabels[0].getElement().querySelector('.tong-label');
+      if (box.getBoundingClientRect().width < box.scrollWidth - 1 || box.getBoundingClientRect().width < 20) throw Error('Label box does not fit text');
       if (!turf.booleanPointInPolygon(turf.point([marker.lng, marker.lat]), turf.polygon([large]))) throw Error('Label outside largest part');
       tongShapes[1].rings = [small];
       renderAll();
