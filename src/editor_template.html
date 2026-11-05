@@ -134,8 +134,33 @@
   #panel .saveBar button { flex:1; }
   .editingTools { padding:12px 20px; border-bottom:1px solid #e6ecef; }
   #panel .editingTools .row { margin:0; }
+  #gisMap { left:340px; }
+  #panel { top:0; bottom:0; left:0; width:340px; max-height:none; border-radius:0; color:#1e3442; background:#f8f8f5; border-right:1px solid #d9e0df; box-shadow:none; font-size:13px; }
+  .panelHeader { padding:20px; background:#fff; border-bottom:1px solid #dce3e2; }
+  #panel h1 { color:#18384d; font-size:18px; font-weight:750; letter-spacing:-.04em; }
+  .panelHeader a { color:#245765; font-weight:700; padding:7px 10px; border:1px solid #c9d8d8; border-radius:5px; text-decoration:none; }
+  #panel details, #panel .shapeSection, .editingTools, .saveBar { border-color:#dfe5e2; }
+  #panel summary { padding:15px 0; color:#1c3848; font-size:14px; }
+  #panel details[open] { padding-bottom:15px; }
+  #panel label.fieldLabel { color:#536976; font-weight:600; }
+  #panel button, #panel .fileBtn { color:#274151; background:#fff; border-color:#cbd7d9; border-radius:5px; font-weight:600; }
+  #panel button:not(:disabled):hover, #panel .fileBtn:hover { background:#eaf2f1; border-color:#9dbabc; }
+  #panel button.primary, #panel .modeToggle button.active { color:#fff; background:#1b5d5b; border-color:#1b5d5b; }
+  #panel .modeToggle button { padding:9px 4px; font-size:12px; white-space:nowrap; }
+  #panel button.primary:not(:disabled):hover, #panel .modeToggle button.active:hover { background:#154b4a; }
+  #panel button[aria-pressed=true] { color:#fff; background:#1b5d5b; border-color:#1b5d5b; }
+  #panel .regionSelect { color:#263e4c; background-color:#fff; border-color:#cbd7d9; border-radius:5px; }
+  #panel .regionSelect:hover { background-color:#fff; border-color:#8daeb0; }
+  #panel :is(button, a, summary, input, select):focus-visible { outline:3px solid #2c7980; outline-offset:2px; }
+  .editingTools { background:#f0f4f2; }
+  #panel .editingTools .row + .row { margin-top:8px; }
+  #panel .editingTools button { flex:1; min-width:0; padding:9px 6px; font-size:12px; }
+  .saveBar { background:#fff; box-shadow:0 -4px 12px #203d490d; }
+  #workStatus { color:#566e77; }
+  #shapeList li { border-color:#e3e9e7; }
   @media (max-width:600px) {
-    #panel { width:100%; border-radius:18px 18px 0 0; padding:0; max-height:45vh; }
+    #gisMap { left:0; }
+    #panel { top:auto; bottom:0; left:0; width:100%; border-radius:14px 14px 0 0; padding:0; max-height:45vh; border-right:0; box-shadow:0 -6px 24px #203d4926; }
     .panelHeader { padding:16px 20px; }
     #panel input[type=text], #panel input[type=number], #panel select { font-size:16px; }
   }
