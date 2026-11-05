@@ -53,7 +53,9 @@ async function upload(page, selector, data, name = 'test.json') {
     assert.ok(saved.head.BOUNDARY);
     assert.ok(saved.body[0].UNIT_NAME.includes('테스트리'));
     assert.equal(saved.body[0].COT_LEADER_NAME, undefined);
+    await page.locator('#fileTools').evaluate(el => { el.open = true; });
     await upload(page, '#loadTongInput', saved);
+    await page.locator('#editorApply').click();
     await page.waitForFunction(() => document.getElementById('loadStatus').textContent.includes('불러옴'));
     const snapshot = await page.evaluate(() => JSON.stringify(tongShapes));
     const malformed = structuredClone(saved);
@@ -91,6 +93,7 @@ async function upload(page, selector, data, name = 'test.json') {
     await viewer.waitForFunction(() => viewerMap && viewerLayers);
     assert.equal(await viewer.locator('#drawStartBtn').count(), 0);
     await upload(viewer, '#viewerFile', saved);
+    await viewer.locator('#viewerApply').click();
     await viewer.waitForFunction(() => viewerData && viewerData.head.UNIT_TYPE === 'ri');
     assert.ok((await viewer.locator('#viewerList').innerText()).includes('테스트리'));
     assert.equal(await viewer.locator('#viewerList img').count(), 0);

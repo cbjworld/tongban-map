@@ -53,7 +53,9 @@ a { color:#004c80; font-size:13px; }
 <label for="sggSelect">시군구</label><select id="sggSelect"></select>
 <label for="dongSelect">읍면동</label><select id="dongSelect"></select>
 <label for="viewerFile">통·리·반 JSON</label><input type="file" id="viewerFile" accept=".json" disabled>
+<div id="viewerPreview" hidden><div id="viewerPreviewText"></div><button id="viewerApply" type="button">지도 불러오기</button><button id="viewerCancel" type="button">취소</button></div>
 <div id="viewerStatus" role="status">지도 준비 중…</div>
+<div id="viewerPointResult" role="status"></div>
 <h2 id="viewerTitle"></h2><label for="viewerSearch">통·리 검색</label><input id="viewerSearch" type="search" placeholder="번호 또는 이름"><div id="viewerSearchStatus" role="status"></div><div id="viewerList"></div>
 <button id="printMap" type="button">현재 화면 인쇄 · PDF</button>
 </main>

@@ -134,6 +134,8 @@
   .saveBar { position:sticky; bottom:0; z-index:2; padding:16px 20px; background:#fff; border-top:1px solid #e6ecef; }
   #geometryResults button { display:block; width:100%; margin:5px 0; text-align:left; }
   #geometryResults button[hidden] { display:none; }
+  #panel #geometryResults details { padding:0; border:0; }
+  #panel #geometryResults summary { padding:8px 0; }
   #historyList { max-height:140px; overflow:auto; padding-left:24px; font-size:12px; }
   #panelToggle { display:none; }
   #panel .saveBar .row { margin:0; }
@@ -222,6 +224,7 @@
     <input type="file" id="loadBoundaryInput" accept=".json,.geojson">
   </div>
   <div id="loadStatus" class="status"></div>
+  <div id="editorPreview" hidden><div id="editorPreviewText" class="status"></div><div class="row"><button id="editorApply" type="button">파일 적용</button><button id="editorCancel" type="button">취소</button></div></div>
   <div class="row"><button id="restoreImport" type="button">불러오기 전 작업 복구</button></div>
   <label class="fieldLabel" for="restoreVersionSelect">이전 작업 복구</label>
   <div class="row"><select id="restoreVersionSelect" aria-label="이전 작업 시점"></select><button id="restoreVersion" type="button">복구</button></div>
@@ -317,6 +320,7 @@
     <button id="exportBoundaryBtn">외곽선 저장</button>
   </div>
   <div class="row"><button id="shareBundleBtn" type="button">지도 공유 묶음 저장</button></div>
+  <div class="row"><button id="exportAllBtn" type="button">모든 지역 백업</button></div>
   </footer>
 </div>
 
@@ -329,7 +333,7 @@ var t,e,n="function"==typeof Symbol?Symbol:{},r=n.iterator||"@@iterator",i=n.toS
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="map.js?v=fa9e985519ce"></script>
-<script src="data-format.js?v=4d23f88ee701"></script>
+<script src="data-format.js?v=4d336bd9bf49"></script>
 
 <script type="text/javascript">
 //<![CDATA[
@@ -1750,6 +1754,7 @@ function applyTongJsonData(data, sourceLabel) {
   if (!saveImportRecovery()) return;
   if (editingTarget) stopVertexEdit();
   if (isDrawing) cancelDrawing();
+  if (isPickingParcel) togglePickMode();
   unitType = parsed.head.UNIT_TYPE || (activeRegion && /[읍면]$/.test(activeRegion.name) ? 'ri' : 'tong');
   if (parsed.head.BOUNDARY) { boundaryFeature = parsed.head.BOUNDARY; boundaryRing = null; }
   updateUnitLabels();
@@ -1761,17 +1766,49 @@ function applyTongJsonData(data, sourceLabel) {
   populateParcelSection();
   el.className = 'status ok';
   el.textContent = unitLabel() + ' 경계 ' + Object.keys(loaded).length + '개 불러옴 · ' + sourceLabel;
+  return true;
 }
 
+var pendingEditorImport = null;
 document.getElementById('loadTongInput').addEventListener('change', function (ev) {
   var file = ev.target.files && ev.target.files[0];
   if (!file) return;
   ev.target.value = '';
+  pendingEditorImport = null;
+  document.getElementById('editorPreview').hidden = true;
   loadJsonFile(file, function (err, data) {
     var el = document.getElementById('loadStatus');
     if (err) { el.className = 'status warn'; el.textContent = '읽기 실패: ' + err.message; return; }
-    applyTongJsonData(data, file.name);
+    var work = data && data.version === 1 && data.data ? parseLocalWork(JSON.stringify(data), data.data.head.REGION_CODE).value : null;
+    var parsed = work ? work.parsed : parseMapData(data);
+    pendingEditorImport = { data: work ? work.data : data, work: work, region: activeRegion, filename: file.name };
+    document.getElementById('editorPreviewText').textContent = file.name + ' · ' + describeMapData(parsed) + (work && work.draft ? ' · 작성 중인 경계 포함' : '');
+    document.getElementById('editorPreview').hidden = false;
+    el.className = 'status'; el.textContent = '파일을 확인한 뒤 적용하세요.';
   });
+});
+document.getElementById('editorCancel').addEventListener('click', function () {
+  pendingEditorImport = null; document.getElementById('editorPreview').hidden = true;
+  document.getElementById('loadStatus').textContent = '불러오기를 취소했습니다.';
+});
+document.getElementById('editorApply').addEventListener('click', function () {
+  var pending = pendingEditorImport;
+  if (!pending) return;
+  if (pending.region !== activeRegion) { document.getElementById('loadStatus').textContent = '지역이 변경되었습니다. 파일을 다시 선택하세요.'; return; }
+  try {
+    if (!applyTongJsonData(pending.data, pending.filename)) return;
+    if (pending.work && pending.work.draft) {
+      var draft = pending.work.draft;
+      setMode(draft.mode); startDrawing(); drawPoints = draft.points;
+      document.getElementById('tongNumInput').value = draft.tong || '';
+      document.getElementById('banParentTongSelect').value = draft.parent || '';
+      document.getElementById('banNumInput').value = draft.ban || '';
+      refreshDrawPreview();
+      document.getElementById('drawUndoBtn').disabled = !drawPoints.length;
+      document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
+    }
+    pendingEditorImport = null; document.getElementById('editorPreview').hidden = true;
+  } catch (error) { document.getElementById('loadStatus').textContent = '불러오기 실패: ' + error.message; }
 });
 
 
@@ -1912,8 +1949,8 @@ document.getElementById('panelToggle').addEventListener('click', function () {
 <script src="parcels.js?v=4f731a7d7c59"></script>
 <script src="local-work.js?v=bcb8796e3800"></script>
 <script src="autosave.js?v=83301e577606"></script>
-<script src="editing-tools.js?v=a514d0f248c1"></script>
+<script src="editing-tools.js?v=043107868a93"></script>
 <script src="topology.js?v=c3784f0dba4c"></script>
-<script src="share-bundle.js?v=bd6a1cfdcbdb"></script>
+<script src="share-bundle.js?v=835663283b0b"></script>
 </body>
 </html>

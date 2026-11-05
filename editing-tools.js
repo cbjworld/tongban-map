@@ -87,7 +87,7 @@ function inspectMapGeometry(shapes, locations) {
   function gapLocations(feature, label, options) {
     var parts = turf.flatten(feature).features.filter(function (part) { return turf.area(part) > 0.01; });
     parts.forEach(function (part, index) {
-      locations.push(Object.assign({ feature: part, label: label + (parts.length > 1 ? ' ' + (index + 1) : ''), color: '#e99500', gap: true }, options || {}));
+      locations.push(Object.assign({ feature: part, label: label + (parts.length > 1 ? ' ' + (index + 1) : ''), color: '#e99500', gap: true, category: '미지정' }, options || {}));
     });
   }
   function geometry(rings) {
@@ -106,7 +106,7 @@ function inspectMapGeometry(shapes, locations) {
         var intersection = turf.intersect(turf.featureCollection([entry.feature, other.feature]));
         if (intersection && turf.area(intersection) > 0.01) {
           problems.push(entry.label + ' / ' + other.label + ' 겹침');
-          if (locations) locations.push({ feature: intersection, label: entry.label + ' / ' + other.label + ' 겹침', color: '#d23b33' });
+          if (locations) locations.push({ feature: intersection, label: entry.label + ' / ' + other.label + ' 겹침', color: '#d23b33', category: '겹침' });
         }
       });
     });
@@ -123,7 +123,7 @@ function inspectMapGeometry(shapes, locations) {
         var beyond = turf.difference(turf.featureCollection([parent, region]));
         if (beyond && turf.area(beyond) > 0.01) {
           problems.push(label + ' 지역 외곽선 밖');
-          locations.push({ feature: beyond, label: label + ' 지역 외곽선 밖', color: '#d23b33', edit: 'tong:' + number });
+          locations.push({ feature: beyond, label: label + ' 지역 외곽선 밖', color: '#d23b33', edit: 'tong:' + number, category: '경계 이탈' });
         }
       }
       var children = [];
@@ -136,7 +136,7 @@ function inspectMapGeometry(shapes, locations) {
           var outside = turf.difference(turf.featureCollection([child, parent]));
           if (outside && turf.area(outside) > 0.01) {
             problems.push(childLabel + ' 상위 구역 밖');
-            if (locations) locations.push({ feature: outside, label: childLabel + ' 상위 구역 밖', color: '#d23b33', edit: 'ban:' + number + ':' + ban });
+            if (locations) locations.push({ feature: outside, label: childLabel + ' 상위 구역 밖', color: '#d23b33', edit: 'ban:' + number + ':' + ban, category: '경계 이탈' });
           }
         } catch (error) { problems.push(childLabel + ' 검사 실패 · 경계 형식을 확인하세요'); }
       });
@@ -177,11 +177,23 @@ document.getElementById('checkGeometry').addEventListener('click', function () {
   var problems = inspectMapGeometry(tongShapes, locations);
   inspectionLayer = L.featureGroup().addTo(oMap);
   var hidden = 0;
+  var groups = {};
   var errors = problems.filter(function (problem) { return /검사 실패|경계 없음/.test(problem); });
   function showSummary() {
     status.textContent = problems.length ? '위치 ' + (locations.length - hidden) + '곳 표시' + (hidden ? ' · ' + hidden + '곳 숨김' : '') + (errors.length ? ' · ' + errors.join(' · ') : '') : '겹침·상위 구역 이탈·자기 교차 없음 (공식 경계 정확도 검증 아님)';
+    Object.keys(groups).forEach(function (category) {
+      var group = groups[category];
+      group.summary.textContent = category + ' ' + group.total + '곳' + (group.hidden ? ' · ' + group.hidden + '곳 숨김' : '');
+    });
   }
   locations.forEach(function (item) {
+    if (!groups[item.category]) {
+      var section = document.createElement('details'); section.open = true;
+      var heading = document.createElement('summary'); section.appendChild(heading);
+      groups[item.category] = { section: section, summary: heading, total: 0, hidden: 0 };
+      document.getElementById('geometryResults').appendChild(section);
+    }
+    var group = groups[item.category]; group.total++;
     var layer = L.geoJSON(item.feature, { style: { color: item.color, weight: 2, fillOpacity: 0.35 } }).bindTooltip(item.label).addTo(inspectionLayer);
     var row = document.createElement('div');
     var button = document.createElement('button');
@@ -213,8 +225,8 @@ document.getElementById('checkGeometry').addEventListener('click', function () {
       toggle.textContent = item.label + ' 숨기기';
       toggle.addEventListener('click', function () {
         var isVisible = inspectionLayer.hasLayer(layer);
-        if (isVisible) { inspectionLayer.removeLayer(layer); hidden++; }
-        else { inspectionLayer.addLayer(layer); hidden--; }
+        if (isVisible) { inspectionLayer.removeLayer(layer); hidden++; group.hidden++; }
+        else { inspectionLayer.addLayer(layer); hidden--; group.hidden--; }
         button.hidden = isVisible;
         if (fix) fix.hidden = isVisible;
         toggle.textContent = item.label + (isVisible ? ' 다시 표시' : ' 숨기기');
@@ -222,7 +234,7 @@ document.getElementById('checkGeometry').addEventListener('click', function () {
       });
       row.appendChild(toggle);
     }
-    document.getElementById('geometryResults').appendChild(row);
+    group.section.appendChild(row);
   });
   showSummary();
 });

@@ -22,6 +22,12 @@ function formatArea(rings) {
   return area >= 1000000 ? (area / 1000000).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '㎢' : Math.round(area).toLocaleString('ko-KR') + '㎡';
 }
 
+function describeMapData(parsed) {
+  var count = Object.keys(parsed.shapes).length;
+  var bans = Object.keys(parsed.shapes).reduce(function (total, number) { return total + Object.keys(parsed.shapes[number].banShapes).length; }, 0);
+  return (parsed.head.DONG_NAME || '지역명 없음') + ' · ' + (parsed.head.UNIT_TYPE === 'ri' ? '리' : '통') + ' ' + count + '개 · 반 ' + bans + '개';
+}
+
 function arrangeMapLabels(map, entries) {
   var occupied = [];
   entries.slice().sort(function (a, b) { return Number(!!b.manual) - Number(!!a.manual); }).forEach(function (entry) {

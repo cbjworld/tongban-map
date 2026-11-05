@@ -5,6 +5,8 @@ var viewerRequest = 0;
 var viewerData = null;
 var viewerLocalCode = null;
 var viewerLabelEntries = [];
+var viewerUnits = [];
+var viewerPending = null;
 function arrangeViewerLabels() { requestAnimationFrame(function () { if (viewerMap) arrangeMapLabels(viewerMap, viewerLabelEntries); }); }
 function filterViewerList() {
   var query = document.getElementById('viewerSearch').value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
@@ -35,6 +37,9 @@ function viewerDongs() {
 }
 function renderViewer(data, boundary, title) {
   viewerLabelEntries = [];
+  viewerUnits = [];
+  document.getElementById('viewerPointResult').textContent = '';
+  if (viewerMap) viewerMap.closePopup();
   var layers = L.featureGroup();
   var list = document.createDocumentFragment();
   if (boundary) L.geoJSON(boundary, { style: { color: '#4b6ebe', fill: false, weight: 3 } }).addTo(layers);
@@ -68,6 +73,7 @@ function renderViewer(data, boundary, title) {
       else layers.removeLayer(group);
       arrangeViewerLabels();
     });
+    viewerUnits.push({ shape: shape, label: label, checkbox: checkbox });
     var row = document.createElement('div');
     row.className = 'viewerUnit';
     row.appendChild(checkbox);
@@ -100,6 +106,21 @@ function renderViewer(data, boundary, title) {
   if (layers.getBounds().isValid()) viewerMap.fitBounds(layers.getBounds(), { padding: [30, 30], maxZoom: 16, animate: false });
   arrangeViewerLabels();
 }
+function identifyViewerPoint(event) {
+  var point = turf.point([event.latlng.lng, event.latlng.lat]), results = [], ambiguous = false;
+  function contains(rings) { return rings.some(function (ring) { return turf.booleanPointInPolygon(point, turf.polygon([ring])); }); }
+  viewerUnits.forEach(function (item) {
+    if (!item.checkbox.checked || !contains(item.shape.rings)) return;
+    var bans = Object.keys(item.shape.banShapes).filter(function (number) { return contains(item.shape.banShapes[number].rings); });
+    if (bans.length > 1) ambiguous = true;
+    results.push(item.label + ' · ' + (bans.length ? bans.map(function (number) { return number + '반'; }).join(', ') : '반 미지정'));
+  });
+  var message = results.length ? results.join(' / ') : '표시된 구역이 없습니다.';
+  if (results.length > 1 || ambiguous) message += ' · 경계가 겹치는 위치';
+  document.getElementById('viewerPointResult').textContent = message;
+  var content = document.createElement('div'); content.textContent = message;
+  L.popup().setLatLng(event.latlng).setContent(content).openOn(viewerMap);
+}
 async function loadViewerRegion(code) {
   var row = viewerRegions.find(function (entry) { return entry.code === code; });
   if (!row) return;
@@ -125,6 +146,7 @@ async function bootApp() {
     if (!window.L) throw new Error('지도 라이브러리를 불러오지 못했습니다.');
     viewerMap = createMap(document.getElementById('gisMap'));
     viewerMap.on('zoomend', arrangeViewerLabels);
+    viewerMap.on('click', identifyViewerPoint);
     viewerMap.createPane('viewerBan').style.zIndex = 410;
     viewerMap.createPane('viewerTong').style.zIndex = 411;
     viewerMap.attributionControl.addAttribution('경계: <a href="https://github.com/vuski/admdongkor">SGIS · vuski/admdongkor · CC BY 4.0</a>');
@@ -146,6 +168,8 @@ async function bootApp() {
 }
 function clearViewerSelection() {
   viewerRequest++;
+  viewerPending = null;
+  document.getElementById('viewerPreview').hidden = true;
   viewerLocalCode = null;
   renderViewer(null, null, '');
   viewerStatus('읍면동을 선택하세요.');
@@ -161,8 +185,27 @@ document.getElementById('viewerFile').addEventListener('change', async function 
   var file = this.files[0];
   if (!file) return;
   var request = ++viewerRequest;
+  viewerPending = null;
+  document.getElementById('viewerPreview').hidden = true;
   try {
     var data = parseMapData(await readJsonUpload(file));
+    if (request !== viewerRequest) return;
+    viewerPending = { data: data, filename: file.name, request: request };
+    document.getElementById('viewerPreviewText').textContent = file.name + ' · ' + describeMapData(data);
+    document.getElementById('viewerPreview').hidden = false;
+    viewerStatus('파일 내용을 확인한 뒤 불러오세요.');
+  } catch (error) { if (request === viewerRequest) viewerStatus('불러오기 실패: ' + error.message); }
+  this.value = '';
+});
+document.getElementById('viewerCancel').addEventListener('click', function () {
+  viewerPending = null; viewerRequest++; document.getElementById('viewerPreview').hidden = true; viewerStatus('불러오기를 취소했습니다.');
+});
+document.getElementById('viewerApply').addEventListener('click', async function () {
+  var pending = viewerPending;
+  if (!pending) return;
+  var data = pending.data, request = pending.request;
+  this.disabled = true;
+  try {
     var boundary = data.head.BOUNDARY || null;
     if (!boundary && data.head.REGION_CODE) {
       var response = await fetch('data/regions/' + data.head.REGION_CODE + '.json');
@@ -182,9 +225,10 @@ document.getElementById('viewerFile').addEventListener('change', async function 
       viewerDistricts();
     }
     renderViewer(data, boundary, data.head.DONG_NAME);
-    viewerStatus(Object.keys(data.shapes).length + '개 경계 · ' + file.name);
+    viewerPending = null; document.getElementById('viewerPreview').hidden = true;
+    viewerStatus(Object.keys(data.shapes).length + '개 경계 · ' + pending.filename);
   } catch (error) { if (request === viewerRequest) viewerStatus('불러오기 실패: ' + error.message); }
-  this.value = '';
+  finally { this.disabled = false; }
 });
 window.addEventListener('load', bootApp);
 window.addEventListener('storage', function (event) {
