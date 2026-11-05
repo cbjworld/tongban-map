@@ -18,6 +18,8 @@ for (const file of ['editor_template.html']) {
         document: { getElementById: () => ({ disabled: false }) },
         renderAll() {},
         markEdit() {},
+        getNeighborRings() { return []; },
+        deleteSharedVertex() { return null; },
         afterVertexChange() { context.changed = true; },
         stopVertexEdit() { context.editingTarget = null; context.selectedVertex = null; },
         setEditStatus() {},

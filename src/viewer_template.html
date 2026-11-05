@@ -13,6 +13,7 @@ body { margin:0; font-family:"Malgun Gothic",sans-serif; color:#263746; }
 #panel { position:absolute; top:12px; left:12px; z-index:1000; width:300px; padding:16px; border-radius:10px; background:white; box-shadow:0 2px 10px #0003; max-height:calc(100vh - 24px); overflow:auto; }
 h1 { font-size:18px; margin:0 0 12px; }
 label { display:block; font-size:12px; margin-top:12px; }
+input[type=search] { width:100%; padding:10px; margin-top:5px; border:1px solid #d6dfe6; border-radius:7px; font:inherit; }
 select, button { width:100%; padding:10px; margin-top:5px; border:1px solid #d6dfe6; border-radius:7px; background:#f8fafc; font:inherit; font-size:13px; }
 button { cursor:pointer; text-align:left; }
 input[type=file] { width:100%; margin:8px 0; }
@@ -53,7 +54,7 @@ a { color:#004c80; font-size:13px; }
 <label for="dongSelect">읍면동</label><select id="dongSelect"></select>
 <label for="viewerFile">통·리·반 JSON</label><input type="file" id="viewerFile" accept=".json" disabled>
 <div id="viewerStatus" role="status">지도 준비 중…</div>
-<h2 id="viewerTitle"></h2><div id="viewerList"></div>
+<h2 id="viewerTitle"></h2><label for="viewerSearch">통·리 검색</label><input id="viewerSearch" type="search" placeholder="번호 또는 이름"><div id="viewerSearchStatus" role="status"></div><div id="viewerList"></div>
 <button id="printMap" type="button">현재 화면 인쇄 · PDF</button>
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

@@ -6,6 +6,15 @@ var viewerData = null;
 var viewerLocalCode = null;
 var viewerLabelEntries = [];
 function arrangeViewerLabels() { requestAnimationFrame(function () { if (viewerMap) arrangeMapLabels(viewerMap, viewerLabelEntries); }); }
+function filterViewerList() {
+  var query = document.getElementById('viewerSearch').value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+  var groups = document.querySelectorAll('#viewerList .viewerGroup'), count = 0;
+  groups.forEach(function (group) {
+    group.hidden = !group.dataset.search.includes(query);
+    if (!group.hidden) count++;
+  });
+  document.getElementById('viewerSearchStatus').textContent = query ? '검색 결과 ' + count + '개' : '';
+}
 
 function viewerStatus(message) { document.getElementById('viewerStatus').textContent = message; }
 function viewerOptions(id, rows, placeholder) {
@@ -67,20 +76,25 @@ function renderViewer(data, boundary, title) {
     area.className = 'viewerArea';
     area.textContent = '약 ' + formatArea(shape.rings);
     row.appendChild(area);
-    list.appendChild(row);
+    var listGroup = document.createElement('div');
+    listGroup.className = 'viewerGroup';
+    listGroup.dataset.search = label.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+    listGroup.appendChild(row);
     Object.keys(shape.banShapes).forEach(function (ban) {
       L.geoJSON({ type: 'MultiPolygon', coordinates: shape.banShapes[ban].rings.map(function (ring) { return [ring]; }) },
         { pane: 'viewerBan', style: { color: '#c97700', weight: 2.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(group);
       var banArea = document.createElement('div');
       banArea.className = 'viewerBanArea';
       banArea.textContent = ban + '반 · 약 ' + formatArea(shape.banShapes[ban].rings);
-      list.appendChild(banArea);
+      listGroup.appendChild(banArea);
     });
+    list.appendChild(listGroup);
   });
   if (viewerLayers) viewerLayers.remove();
   viewerLayers = layers.addTo(viewerMap);
   viewerData = data;
   document.getElementById('viewerList').replaceChildren(list);
+  filterViewerList();
   document.getElementById('viewerTitle').textContent = title;
   viewerMap.stop();
   if (layers.getBounds().isValid()) viewerMap.fitBounds(layers.getBounds(), { padding: [30, 30], maxZoom: 16, animate: false });
@@ -137,6 +151,7 @@ function clearViewerSelection() {
   viewerStatus('읍면동을 선택하세요.');
 }
 document.getElementById('sidoSelect').addEventListener('change', function () { clearViewerSelection(); viewerDistricts(); });
+document.getElementById('viewerSearch').addEventListener('input', filterViewerList);
 document.getElementById('sggSelect').addEventListener('change', function () { clearViewerSelection(); viewerDongs(); });
 document.getElementById('dongSelect').addEventListener('change', function () {
   if (this.value) loadViewerRegion(this.value);

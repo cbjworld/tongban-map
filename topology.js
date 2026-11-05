@@ -41,6 +41,60 @@ function moveSharedVertex(ring, vertexIndex, neighbors, point) {
   return true;
 }
 
+function sharedVertexNeighbors(ring, index, neighbors) {
+  var p = ring[index], count = ring.length - 1, epsilon = 1e-9;
+  var adjacent = [ring[(index + count - 1) % count], ring[(index + 1) % count]];
+  function same(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]) < epsilon; }
+  function on(p, a, b) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+    if (len < epsilon) return false;
+    var projection = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len;
+    return Math.abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / len < epsilon && projection >= -epsilon && projection <= len + epsilon;
+  }
+  return neighbors.filter(function (other) {
+    return other.slice(1).some(function (b, i) {
+      var a = other[i];
+      return on(p, a, b) && adjacent.some(function (q) {
+        return (!same(q, p) && on(q, a, b)) || (!same(a, p) && on(a, p, q)) || (!same(b, p) && on(b, p, q));
+      });
+    });
+  });
+}
+
+function deleteSharedVertex(ring, index, neighbors) {
+  var shared = sharedVertexNeighbors(ring, index, neighbors), point = ring[index];
+  if (!shared.length) return null;
+  var target = ring.slice(0, -1).map(function (p) { return p.slice(); });
+  target.splice(index, 1);
+  if (target.length < 3) return false;
+  target.push(target[0].slice());
+  var updates = [{ ring: ring, value: target }];
+  shared.forEach(function (other) {
+    var open = other.slice(0, -1).map(function (p) { return p.slice(); });
+    var i = open.findIndex(function (p) { return Math.hypot(p[0] - point[0], p[1] - point[1]) < 1e-9; });
+    if (i >= 0) { open.splice(i, 1); updates.push({ ring: other, value: open.length ? open.concat([open[0].slice()]) : [] }); }
+  });
+  try {
+    updates.forEach(function (update) {
+      validateRings([update.value]);
+      if (turf.kinks(turf.polygon([update.value])).features.length) throw new Error('교차 경계');
+    });
+    shared.forEach(function (other) {
+      var changed = updates.find(function (update) { return update.ring === other; });
+      var before = turf.union(turf.featureCollection([turf.polygon([ring]), turf.polygon([other])]));
+      var after = turf.union(turf.featureCollection([turf.polygon([target]), turf.polygon([changed ? changed.value : other])]));
+      var lost = turf.difference(turf.featureCollection([before, after]));
+      var gained = turf.difference(turf.featureCollection([after, before]));
+      if ((lost && turf.area(lost) > 0.01) || (gained && turf.area(gained) > 0.01)) throw new Error('공통 경계 변경');
+      var oldOverlap = turf.intersect(turf.featureCollection([turf.polygon([ring]), turf.polygon([other])]));
+      var newOverlap = turf.intersect(turf.featureCollection([turf.polygon([target]), turf.polygon([changed ? changed.value : other])]));
+      if ((newOverlap ? turf.area(newOverlap) : 0) - (oldOverlap ? turf.area(oldOverlap) : 0) > 0.01) throw new Error('공통 경계 겹침');
+    });
+  } catch (error) { return false; }
+  updates.forEach(function (update) { update.ring.length = 0; update.value.forEach(function (p) { update.ring.push(p); }); });
+  return true;
+}
+
 function snapDrawingPoint(latlng) {
   if (!document.getElementById('snapEnabled').checked) return [latlng.lng, latlng.lat];
   var pointer = oMap.latLngToContainerPoint(latlng), best = null, exact = null, distance = matchMedia('(pointer: coarse)').matches ? 18 : 10;

@@ -24,6 +24,36 @@ function workSnapshot() {
     parent: document.getElementById('banParentTongSelect').value, ban: document.getElementById('banNumInput').value
   } : null });
 }
+function workVersions() {
+  var data = JSON.parse(localStorage.getItem(workPrefix + 'versions:' + activeRegion.code) || '[]');
+  if (!Array.isArray(data) || data.some(function (entry) { return !entry || typeof entry.raw !== 'string' || !Number.isFinite(entry.at); })) throw new Error('이전 작업 목록 오류');
+  return data;
+}
+function refreshWorkVersions() {
+  var select = document.getElementById('restoreVersionSelect');
+  select.replaceChildren(new Option('시점 선택', ''));
+  if (!activeRegion) return;
+  try {
+    workVersions().forEach(function (entry, index) {
+      select.add(new Option(new Date(entry.at).toLocaleString('ko-KR'), String(index)));
+    });
+  } catch (error) { document.getElementById('versionStatus').textContent = '이전 작업 목록을 읽지 못했습니다.'; }
+}
+function archiveWorkSnapshot(raw, force) {
+  if (!raw || !activeRegion) return;
+  try {
+    parseLocalWork(raw, activeRegion.code);
+    var entries = workVersions(), now = Date.now();
+    if (entries.length && (entries[0].raw === raw || (!force && now - entries[0].at < 120000))) return;
+    if (raw.length * 2 > 3 * 1024 * 1024) throw new Error('복구본 크기 초과');
+    entries.unshift({ at: now, raw: raw });
+    while (entries.length > 5 || JSON.stringify(entries).length * 2 > 3 * 1024 * 1024) entries.pop();
+    if (!entries.length) throw new Error('복구본 크기 초과');
+    localStorage.setItem(workPrefix + 'versions:' + activeRegion.code, JSON.stringify(entries));
+    document.getElementById('versionStatus').textContent = '';
+    refreshWorkVersions();
+  } catch (error) { document.getElementById('versionStatus').textContent = '이전 시점 보관 실패 · JSON으로 백업하세요.'; }
+}
 function saveImportRecovery() {
   if (!workReady || !activeRegion || workBlocked) { workStatus('복구 준비가 안 되어 불러올 수 없습니다.'); return false; }
   try {
@@ -31,16 +61,15 @@ function saveImportRecovery() {
     var snapshot = workSnapshot();
     parseLocalWork(snapshot, activeRegion.code);
     localStorage.setItem(workPrefix + 'recovery:' + activeRegion.code, snapshot);
+    archiveWorkSnapshot(snapshot, true);
     return true;
   } catch (error) { workStatus('불러오기 전 복구본 저장 실패: ' + error.message + ' · JSON 백업을 확인하세요'); return false; }
 }
-document.getElementById('restoreImport').addEventListener('click', function () {
+function restoreWorkVersion(raw, message) {
   if (!workReady || !activeRegion || workBlocked) return;
   try {
-    var raw = localStorage.getItem(workPrefix + 'recovery:' + activeRegion.code);
-    if (!raw) { workStatus('이 지역에 불러오기 전 복구본이 없습니다.'); return; }
     var saved = parseLocalWork(raw, activeRegion.code).value;
-    if (!confirm('불러오기 전 작업으로 복구할까요? 현재 작업도 복구본으로 보관합니다.')) return;
+    if (!confirm(message + ' 현재 작업도 복구본으로 보관합니다.')) return;
     if (!saveImportRecovery()) return;
     if (editingTarget) stopVertexEdit();
     if (isDrawing) cancelDrawing();
@@ -48,7 +77,7 @@ document.getElementById('restoreImport').addEventListener('click', function () {
     boundaryFeature = saved.parsed.head.BOUNDARY || null; boundaryRing = null;
     unitType = saved.parsed.head.UNIT_TYPE || unitType;
     document.getElementById('dongNameInput').value = saved.parsed.head.DONG_NAME;
-    updateUnitLabels(); markEdit('불러오기 전 작업 복구'); renderAll();
+    updateUnitLabels(); markEdit('이전 작업 복구'); renderAll();
     if (saved.draft) {
       setMode(saved.draft.mode); startDrawing(); drawPoints = saved.draft.points;
       document.getElementById('tongNumInput').value = saved.draft.tong || '';
@@ -58,8 +87,25 @@ document.getElementById('restoreImport').addEventListener('click', function () {
       document.getElementById('drawUndoBtn').disabled = !drawPoints.length;
       document.getElementById('drawFinishBtn').disabled = drawPoints.length < 3;
     }
-    if (saveLocalWork()) workStatus('불러오기 전 작업 복구됨');
+    if (saveLocalWork()) workStatus('이전 작업 복구됨');
   } catch (error) { workStatus('복구 실패: ' + error.message + ' · 기존 작업 유지'); }
+}
+document.getElementById('restoreImport').addEventListener('click', function () {
+  if (!workReady || !activeRegion || workBlocked) return;
+  try {
+    var raw = localStorage.getItem(workPrefix + 'recovery:' + activeRegion.code);
+    if (!raw) { workStatus('이 지역에 불러오기 전 복구본이 없습니다.'); return; }
+    restoreWorkVersion(raw, '불러오기 전 작업으로 복구할까요?');
+  } catch (error) { workStatus('복구본을 읽지 못했습니다.'); }
+});
+document.getElementById('restoreVersion').addEventListener('click', function () {
+  if (!workReady || !activeRegion || workBlocked) return;
+  try {
+    var value = document.getElementById('restoreVersionSelect').value;
+    var selected = value !== '' && workVersions()[Number(value)];
+    if (!selected) { workStatus('복구할 시점을 선택하세요.'); return; }
+    restoreWorkVersion(selected.raw, new Date(selected.at).toLocaleString('ko-KR') + ' 작업으로 복구할까요?');
+  } catch (error) { workStatus('이전 작업 목록을 읽지 못했습니다.'); }
 });
 function saveLocalWork() {
   clearTimeout(workTimer);
@@ -71,9 +117,11 @@ function saveLocalWork() {
     if (localStorage.getItem(key) !== workRaw) throw new Error('다른 탭에서 변경됨 · JSON 백업 후 새로고침하세요');
     if (content !== workContent) {
       parseMapData(JSON.parse(content).data);
+      var previous = workRaw;
       localStorage.setItem(key, content);
       workRaw = content;
       workContent = content;
+      archiveWorkSnapshot(previous, false);
       updateBackupNotice(true);
     }
     localStorage.setItem(workPrefix + 'last', activeRegion.code);
@@ -127,6 +175,7 @@ function restoreLocalWork() {
     workStatus('자동 복구 실패: ' + error.message + ' · 기존 저장본 유지');
   }
   workReady = true;
+  refreshWorkVersions();
   updateBackupNotice(false);
   if (typeof resetEditHistory === 'function') resetEditHistory();
 }
