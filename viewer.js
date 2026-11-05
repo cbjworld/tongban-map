@@ -38,7 +38,10 @@ function renderViewer(data, boundary, title) {
     polygon.bindTooltip(tooltip, { permanent: true, direction: 'center' });
     var button = document.createElement('button');
     button.textContent = label;
-    button.addEventListener('click', function () { viewerMap.fitBounds(polygon.getBounds(), { padding: [20, 20], maxZoom: 18 }); });
+    button.addEventListener('click', function () {
+      if (!checkbox.checked) { checkbox.checked = true; layers.addLayer(group); }
+      viewerMap.fitBounds(polygon.getBounds(), { padding: [20, 20], maxZoom: 18 });
+    });
     var checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = true;
@@ -106,14 +109,22 @@ async function bootApp() {
     await loadViewerRegion(initial.code);
   } catch (error) { viewerStatus(error.message); }
 }
-document.getElementById('sidoSelect').addEventListener('change', viewerDistricts);
-document.getElementById('sggSelect').addEventListener('change', viewerDongs);
-document.getElementById('dongSelect').addEventListener('change', function () { loadViewerRegion(this.value); });
+function clearViewerSelection() {
+  viewerRequest++;
+  viewerLocalCode = null;
+  renderViewer(null, null, '');
+  viewerStatus('읍면동을 선택하세요.');
+}
+document.getElementById('sidoSelect').addEventListener('change', function () { clearViewerSelection(); viewerDistricts(); });
+document.getElementById('sggSelect').addEventListener('change', function () { clearViewerSelection(); viewerDongs(); });
+document.getElementById('dongSelect').addEventListener('change', function () {
+  if (this.value) loadViewerRegion(this.value);
+  else clearViewerSelection();
+});
 document.getElementById('viewerFile').addEventListener('change', async function () {
   var file = this.files[0];
   if (!file) return;
   var request = ++viewerRequest;
-  viewerLocalCode = null;
   try {
     var data = parseMapData(await readJsonUpload(file));
     var boundary = data.head.BOUNDARY || null;
@@ -122,6 +133,7 @@ document.getElementById('viewerFile').addEventListener('change', async function 
       if (response.ok) boundary = validateBoundary(await response.json());
     }
     if (request !== viewerRequest) return;
+    viewerLocalCode = null;
     var region = viewerRegions.find(function (row) { return row.code === data.head.REGION_CODE; });
     if (region) {
       document.getElementById('sidoSelect').value = region.sido;
