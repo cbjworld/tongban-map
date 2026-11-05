@@ -5,9 +5,10 @@
   "description": "Local-first administrative boundary editor and viewer",
   "license": "MIT",
   "scripts": {
-    "test": "node check-delete-point.cjs && node check-regions.cjs && node check-release.cjs && node check-autosave.cjs && node check-editing.cjs && node check-viewer-tools.cjs"
+    "test": "node check-delete-point.cjs && node check-regions.cjs && node check-release.cjs && node check-autosave.cjs && node check-editing.cjs && node check-viewer-tools.cjs && node check-upgrades.cjs"
   },
   "devDependencies": {
+    "leaflet": "1.9.4",
     "playwright": "1.62.1"
   }
 }

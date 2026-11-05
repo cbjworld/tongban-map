@@ -132,6 +132,8 @@
   #panel .shapeSection h2 { border:0; font-size:14px; margin:18px 0 12px; padding:0; }
   #shapeList:empty::after { content:'아직 만든 구역이 없습니다'; display:block; padding:12px 0; color:#617481; }
   .saveBar { position:sticky; bottom:0; z-index:2; padding:16px 20px; background:#fff; border-top:1px solid #e6ecef; }
+  #geometryResults button { display:block; width:100%; margin:5px 0; text-align:left; }
+  #historyList { max-height:140px; overflow:auto; padding-left:24px; font-size:12px; }
   #panel .saveBar .row { margin:0; }
   #panel .saveBar button { flex:1; }
   .editingTools { padding:12px 20px; border-bottom:1px solid #e6ecef; }
@@ -242,6 +244,7 @@
   <div class="editingTools"><div class="row"><button id="historyUndo" disabled>실행 취소</button><button id="historyRedo" disabled>다시 실행</button><button id="checkGeometry">경계 검사</button></div>
   <div class="row"><button id="compareEdits" type="button">이전 변경 비교</button><button id="moveLabels" type="button" aria-pressed="false">라벨 이동</button></div>
   <div id="editingStatus" class="status" role="status" aria-live="polite"></div>
+  <div id="geometryResults"></div><details><summary>변경 내역</summary><ol id="historyList"></ol></details>
   </div>
   <details id="parcelTools"><summary>필지로 편입 · 이동</summary>
   <div class="row"><label class="fileBtn" for="loadParcelsInput">필지 GeoJSON</label><input type="file" id="loadParcelsInput" accept=".json,.geojson"></div>
@@ -301,6 +304,7 @@
     <button id="exportTongBtn" class="primary" data-unit-text="{unit}·반 저장">통·반 저장</button>
     <button id="exportBoundaryBtn">외곽선 저장</button>
   </div>
+  <div class="row"><button id="shareBundleBtn" type="button">지도 공유 묶음 저장</button></div>
   </footer>
 </div>
 
@@ -313,7 +317,7 @@ var t,e,n="function"==typeof Symbol?Symbol:{},r=n.iterator||"@@iterator",i=n.toS
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="map.js?v=fa9e985519ce"></script>
-<script src="data-format.js?v=aa7f4c3bd1d8"></script>
+<script src="data-format.js?v=4d23f88ee701"></script>
 
 <script type="text/javascript">
 //<![CDATA[
@@ -739,8 +743,9 @@ function assignSelectedParcel() {
   var previousShapes = JSON.parse(JSON.stringify(tongShapes));
   removeParcelFromEverywhere(lastFoundParcel.feature);
   var result = addParcelToTarget(lastFoundParcel.feature, tongNum, banNum);
-  renderAll();
   if (!result.ok) { tongShapes = previousShapes; renderAll(); setAssignStatus(result.reason, 'warn'); return; }
+  markEdit('필지 편입·이동');
+  renderAll();
   setAssignStatus(lastFoundParcel.j + ' 지번을 ' + tongNum + unitLabel() + '' + (banNum != null ? ' ' + banNum + '반' : '') + '으로 편입했습니다.', 'ok');
   if (isPickingParcel) renderUnassignedParcelOutlines();
 }
@@ -757,9 +762,12 @@ function clearMapLayers() {
   if (boundaryLine) { boundaryLine.remove(); boundaryLine = null; }
 }
 
+var editorLabelEntries = [];
+function arrangeEditorLabels() { requestAnimationFrame(function () { if (oMap) arrangeMapLabels(oMap, editorLabelEntries); }); }
 function renderAll() {
   if (typeof scheduleLocalWork === 'function') scheduleLocalWork();
   clearMapLayers();
+  editorLabelEntries = [];
 
   if (boundaryFeature) {
     boundaryLine = L.geoJSON(boundaryFeature, { interactive: false, style: { color: '#4b6ebe', weight: 4, fill: false } }).addTo(oMap);
@@ -802,10 +810,12 @@ function renderAll() {
           return;
         }
         shape.labelPoint = point;
+        markEdit('라벨 이동');
         renderAll();
       });
     }
     tongLabels.push(label);
+    editorLabelEntries.push({ marker: label, rings: shape.rings, manual: shape.labelPoint, element: function () { return label.getElement() && label.getElement().firstElementChild; } });
 
     if (shape.banShapes) {
       Object.keys(shape.banShapes).map(Number).sort(function (a, b) { return a - b; }).forEach(function (banNum) {
@@ -828,6 +838,7 @@ function renderAll() {
         });
         banLabel.addTo(oMap);
         banLabels.push(banLabel);
+        editorLabelEntries.push({ marker: banLabel, rings: banShape.rings, element: function () { return banLabel.getElement() && banLabel.getElement().firstElementChild; } });
       });
     }
   });
@@ -836,6 +847,7 @@ function renderAll() {
   refreshEditTargetOptions();
   refreshBanParentTongOptions();
   if (editingTarget) renderVertexMarkers(); // 편집 중이면 다시 그린 뒤에도 점들을 유지한다
+  arrangeEditorLabels();
 }
 
 function refreshShapeList() {
@@ -850,7 +862,7 @@ function refreshShapeList() {
     swatch.className = 'swatch';
     swatch.style.background = tongColor(tongNum).fill;
     var label = document.createElement('span');
-    label.textContent = unitName(tongNum) + ' (조각 ' + shape.rings.length + '개)';
+    label.textContent = unitName(tongNum) + ' · 약 ' + formatArea(shape.rings) + ' (조각 ' + shape.rings.length + '개)';
     var chiefInput = document.createElement('input');
     chiefInput.type = 'text';
     chiefInput.value = shape.name || '';
@@ -858,7 +870,7 @@ function refreshShapeList() {
     chiefInput.setAttribute('aria-label', tongNum + unitLabel() + ' 이름');
     chiefInput.maxLength = 100;
     chiefInput.style.cssText = 'width:70px;font-size:11px;padding:3px 5px;border-radius:5px;border:1px solid #ccc;';
-    chiefInput.addEventListener('change', function () { shape.name = chiefInput.value.trim(); renderAll(); });
+    chiefInput.addEventListener('change', function () { shape.name = chiefInput.value.trim(); markEdit('이름 변경'); renderAll(); });
     var goTo = document.createElement('button');
     goTo.className = 'act';
     goTo.textContent = '이동';
@@ -872,6 +884,7 @@ function refreshShapeList() {
     del.textContent = '삭제';
     del.addEventListener('click', function () {
       delete tongShapes[tongNum];
+      markEdit(unitLabel() + ' 삭제');
       renderAll();
     });
     li.appendChild(swatch); li.appendChild(label); li.appendChild(chiefInput); li.appendChild(goTo); li.appendChild(del);
@@ -886,7 +899,7 @@ function refreshShapeList() {
         var bSwatch = document.createElement('span');
         bSwatch.className = 'swatch';
         var bLabel = document.createElement('span');
-        bLabel.textContent = tongNum + unitLabel() + ' ' + banNum + '반 (조각 ' + banShape.rings.length + '개)';
+        bLabel.textContent = tongNum + unitLabel() + ' ' + banNum + '반 · 약 ' + formatArea(banShape.rings) + ' (조각 ' + banShape.rings.length + '개)';
         var bGoTo = document.createElement('button');
         bGoTo.className = 'act';
         bGoTo.textContent = '이동';
@@ -900,6 +913,7 @@ function refreshShapeList() {
         bDel.textContent = '삭제';
         bDel.addEventListener('click', function () {
           delete shape.banShapes[banNum];
+          markEdit('반 삭제');
           renderAll();
         });
         bli.appendChild(bSwatch); bli.appendChild(bLabel); bli.appendChild(bGoTo); bli.appendChild(bDel);
@@ -1136,6 +1150,7 @@ function renderVertexMarkers() {
           var wasClosed = (vertexIndex === 0 && n > 1 && r[0][0] === r[n - 1][0] && r[0][1] === r[n - 1][1]);
           r[vertexIndex] = newPt;
           if (wasClosed) r[n - 1] = [newPt[0], newPt[1]];
+          markEdit('점 이동');
           afterVertexChange();
         });
         editVertexMarkers.push({ marker: marker, partIndex: partIndex, vertexIndex: vertexIndex });
@@ -1157,6 +1172,7 @@ function renderVertexMarkers() {
           var currentRings = getEditingRings();
           if (!currentRings || !currentRings[partIndex]) return;
           currentRings[partIndex].splice(afterIndex + 1, 0, mid.slice());
+          markEdit('점 추가');
           selectedVertex = null;
           document.getElementById('deletePointBtn').disabled = true;
           // 새로 추가한 점은 기존 선분 위(동일 경계선)에 있어서 자르기/겹침 정리가 필요 없다.
@@ -1173,6 +1189,7 @@ function deleteSelectedPoint() {
   if (!selectedVertex) return;
   var rings = getEditingRings();
   if (!rings || !rings[selectedVertex.partIndex]) { selectedVertex = null; return; }
+  markEdit('점 삭제');
   var r = rings[selectedVertex.partIndex];
   var lastIsClose = r.length > 1 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1];
   var uniqueCount = lastIsClose ? r.length - 1 : r.length;
@@ -1448,6 +1465,7 @@ function finishDrawing() {
   drawPoints = [];
   refreshDrawPreview();
   resetDrawButtons();
+  markEdit('경계 그리기');
   renderAll();
 }
 
@@ -1802,6 +1820,7 @@ document.addEventListener('keydown', function (ev) {
 function init() {
   var mapContainer = document.getElementById('gisMap');
   oMap = createMap(mapContainer);
+  oMap.on('zoomend', arrangeEditorLabels);
   oMap.on('click', handleMapClick);
   renderAll();
   document.getElementById('loading').style.display = 'none';
@@ -1827,6 +1846,7 @@ window.addEventListener('load', bootApp);
 <script src="parcels.js?v=4f731a7d7c59"></script>
 <script src="local-work.js?v=bf4804f3eeae"></script>
 <script src="autosave.js?v=a441bcf4fa98"></script>
-<script src="editing-tools.js?v=d1c2d2e78110"></script>
+<script src="editing-tools.js?v=0d28b1d0c09f"></script>
+<script src="share-bundle.js?v=bd6a1cfdcbdb"></script>
 </body>
 </html>

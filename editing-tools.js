@@ -1,4 +1,6 @@
 var editHistory = [];
+var editNames = [];
+var nextEditName = '';
 var editPosition = -1;
 var applyingEdit = false;
 var labelsMovable = false;
@@ -8,6 +10,7 @@ function clearEditingOverlays() {
   if (inspectionLayer) inspectionLayer.remove();
   if (comparisonLayer) comparisonLayer.remove();
   inspectionLayer = comparisonLayer = null;
+  document.getElementById('geometryResults').replaceChildren();
 }
 function editSnapshot() {
   return JSON.stringify({ shapes: tongShapes, boundary: boundaryFeature, ring: boundaryRing,
@@ -16,10 +19,20 @@ function editSnapshot() {
 function updateHistoryButtons() {
   document.getElementById('historyUndo').disabled = editPosition <= 0;
   document.getElementById('historyRedo').disabled = editPosition >= editHistory.length - 1;
+  var list = document.getElementById('historyList');
+  list.replaceChildren();
+  editNames.forEach(function (name, index) {
+    var item = document.createElement('li');
+    item.textContent = name + (index === editPosition ? ' · 현재' : index > editPosition ? ' · 취소됨' : '');
+    list.appendChild(item);
+  });
 }
+function markEdit(name) { nextEditName = name; }
 function resetEditHistory() {
   clearEditingOverlays();
   editHistory = [editSnapshot()];
+  editNames = ['작업 시작'];
+  nextEditName = '';
   editPosition = 0;
   document.getElementById('editingStatus').textContent = '';
   updateHistoryButtons();
@@ -27,12 +40,15 @@ function resetEditHistory() {
 function recordEdit() {
   if (applyingEdit || !workReady || workBlocked) return;
   var snapshot = editSnapshot();
-  if (snapshot === editHistory[editPosition]) return;
+  if (snapshot === editHistory[editPosition]) { nextEditName = ''; return; }
   clearEditingOverlays();
   editHistory = editHistory.slice(0, editPosition + 1);
+  editNames = editNames.slice(0, editPosition + 1);
   editHistory.push(snapshot);
+  editNames.push(nextEditName || '지도 변경');
+  nextEditName = '';
   var size = editHistory.reduce(function (total, item) { return total + item.length * 2; }, 0);
-  while (editHistory.length > 1 && (editHistory.length > 50 || size > 5 * 1024 * 1024)) size -= editHistory.shift().length * 2;
+  while (editHistory.length > 1 && (editHistory.length > 50 || size > 5 * 1024 * 1024)) { size -= editHistory.shift().length * 2; editNames.shift(); }
   editPosition = editHistory.length - 1;
   document.getElementById('editingStatus').textContent = '';
   updateHistoryButtons();
@@ -84,7 +100,7 @@ function inspectMapGeometry(shapes, locations) {
         var intersection = turf.intersect(turf.featureCollection([entry.feature, other.feature]));
         if (intersection && turf.area(intersection) > 0.01) {
           problems.push(entry.label + ' / ' + other.label + ' 겹침');
-          if (locations) locations.push({ feature: intersection, label: '겹침', color: '#d23b33' });
+          if (locations) locations.push({ feature: intersection, label: entry.label + ' / ' + other.label + ' 겹침', color: '#d23b33' });
         }
       });
     });
@@ -139,7 +155,12 @@ document.getElementById('checkGeometry').addEventListener('click', function () {
   var problems = inspectMapGeometry(tongShapes, locations);
   inspectionLayer = L.featureGroup().addTo(oMap);
   locations.forEach(function (item) {
-    L.geoJSON(item.feature, { style: { color: item.color, weight: 2, fillOpacity: 0.35 } }).bindTooltip(item.label).addTo(inspectionLayer);
+    var layer = L.geoJSON(item.feature, { style: { color: item.color, weight: 2, fillOpacity: 0.35 } }).bindTooltip(item.label).addTo(inspectionLayer);
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = item.label + ' 위치 보기';
+    button.addEventListener('click', function () { oMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 18 }); });
+    document.getElementById('geometryResults').appendChild(button);
   });
   status.textContent = problems.length ? problems.join(' · ') : '겹침·상위 구역 이탈·자기 교차 없음 (공식 경계 정확도 검증 아님)';
 });

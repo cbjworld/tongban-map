@@ -17,6 +17,7 @@ for (const file of ['editor_template.html']) {
         tongShapes: { 1: { rings, banShapes: { 2: { rings } } }, 9: { rings: [square] } },
         document: { getElementById: () => ({ disabled: false }) },
         renderAll() {},
+        markEdit() {},
         afterVertexChange() { context.changed = true; },
         stopVertexEdit() { context.editingTarget = null; context.selectedVertex = null; },
         setEditStatus() {},

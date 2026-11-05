@@ -17,6 +17,41 @@ function shapeLabelPoint(rings, manual) {
   return turf.pointOnFeature(largest).geometry.coordinates;
 }
 
+function formatArea(rings) {
+  var area = rings.reduce(function (sum, ring) { return sum + turf.area(turf.polygon([ring])); }, 0);
+  return area >= 1000000 ? (area / 1000000).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '㎢' : Math.round(area).toLocaleString('ko-KR') + '㎡';
+}
+
+function arrangeMapLabels(map, entries) {
+  var occupied = [];
+  entries.slice().sort(function (a, b) { return Number(!!b.manual) - Number(!!a.manual); }).forEach(function (entry) {
+    if (!map.hasLayer(entry.marker)) return;
+    var origin = shapeLabelPoint(entry.rings, entry.manual);
+    entry.marker.setLatLng([origin[1], origin[0]]);
+    var element = entry.element();
+    if (!element) return;
+    var width = element.offsetWidth || 50, height = element.offsetHeight || 24;
+    var base = map.latLngToContainerPoint([origin[1], origin[0]]);
+    var offsets = [[0,0]];
+    if (!entry.manual) {
+      for (var distance = 1; distance <= 3; distance++) {
+        [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]].forEach(function (step) { offsets.push([step[0] * distance * (width + 6), step[1] * distance * (height + 6)]); });
+      }
+    }
+    var chosen = null;
+    offsets.some(function (offset) {
+      var point = L.point(base.x + offset[0], base.y + offset[1]);
+      var latlng = map.containerPointToLatLng(point);
+      if (!entry.rings.some(function (ring) { return turf.booleanPointInPolygon(turf.point([latlng.lng, latlng.lat]), turf.polygon([ring])); })) return false;
+      var box = { left: point.x - width / 2 - 3, right: point.x + width / 2 + 3, top: point.y - height / 2 - 3, bottom: point.y + height / 2 + 3 };
+      if (occupied.some(function (other) { return box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top; })) return false;
+      chosen = { latlng: latlng, box: box }; return true;
+    });
+    if (chosen) { entry.marker.setLatLng(chosen.latlng); occupied.push(chosen.box); }
+    else occupied.push({ left: base.x - width / 2, right: base.x + width / 2, top: base.y - height / 2, bottom: base.y + height / 2 });
+  });
+}
+
 function csvCell(value) {
   var text = value == null ? '' : String(value);
   if (/^\s*[=+@-]/.test(text)) text = "'" + text;

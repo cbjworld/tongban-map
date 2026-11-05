@@ -4,6 +4,8 @@ var viewerLayers;
 var viewerRequest = 0;
 var viewerData = null;
 var viewerLocalCode = null;
+var viewerLabelEntries = [];
+function arrangeViewerLabels() { requestAnimationFrame(function () { if (viewerMap) arrangeMapLabels(viewerMap, viewerLabelEntries); }); }
 
 function viewerStatus(message) { document.getElementById('viewerStatus').textContent = message; }
 function viewerOptions(id, rows, placeholder) {
@@ -23,6 +25,7 @@ function viewerDongs() {
   viewerOptions('dongSelect', viewerRegions.filter(function (row) { return row.sgg === document.getElementById('sggSelect').value; }), '읍면동 선택');
 }
 function renderViewer(data, boundary, title) {
+  viewerLabelEntries = [];
   var layers = L.featureGroup();
   var list = document.createDocumentFragment();
   if (boundary) L.geoJSON(boundary, { style: { color: '#4b6ebe', fill: false, weight: 3 } }).addTo(layers);
@@ -38,8 +41,9 @@ function renderViewer(data, boundary, title) {
     tooltip.textContent = label;
     tooltip.style.backgroundColor = colors.label;
     var center = shapeLabelPoint(shape.rings, shape.labelPoint);
-    L.circleMarker([center[1], center[0]], { radius: 0, opacity: 0, fillOpacity: 0, interactive: false })
+    var marker = L.circleMarker([center[1], center[0]], { radius: 0, opacity: 0, fillOpacity: 0, interactive: false })
       .bindTooltip(tooltip, { permanent: true, direction: 'center', className: 'unitTooltip' }).addTo(group);
+    viewerLabelEntries.push({ marker: marker, rings: shape.rings, manual: shape.labelPoint, element: function () { return marker.getTooltip().getElement(); } });
     var button = document.createElement('button');
     button.textContent = label;
     button.addEventListener('click', function () {
@@ -53,15 +57,24 @@ function renderViewer(data, boundary, title) {
     checkbox.addEventListener('change', function () {
       if (checkbox.checked) layers.addLayer(group);
       else layers.removeLayer(group);
+      arrangeViewerLabels();
     });
     var row = document.createElement('div');
     row.className = 'viewerUnit';
     row.appendChild(checkbox);
     row.appendChild(button);
+    var area = document.createElement('span');
+    area.className = 'viewerArea';
+    area.textContent = '약 ' + formatArea(shape.rings);
+    row.appendChild(area);
     list.appendChild(row);
     Object.keys(shape.banShapes).forEach(function (ban) {
       L.geoJSON({ type: 'MultiPolygon', coordinates: shape.banShapes[ban].rings.map(function (ring) { return [ring]; }) },
         { pane: 'viewerBan', style: { color: '#c97700', weight: 2.5, dashArray: '4 4', fill: false } }).bindTooltip(escapeHtml(label + ' ' + ban + '반')).addTo(group);
+      var banArea = document.createElement('div');
+      banArea.className = 'viewerBanArea';
+      banArea.textContent = ban + '반 · 약 ' + formatArea(shape.banShapes[ban].rings);
+      list.appendChild(banArea);
     });
   });
   if (viewerLayers) viewerLayers.remove();
@@ -71,6 +84,7 @@ function renderViewer(data, boundary, title) {
   document.getElementById('viewerTitle').textContent = title;
   viewerMap.stop();
   if (layers.getBounds().isValid()) viewerMap.fitBounds(layers.getBounds(), { padding: [30, 30], maxZoom: 16, animate: false });
+  arrangeViewerLabels();
 }
 async function loadViewerRegion(code) {
   var row = viewerRegions.find(function (entry) { return entry.code === code; });
@@ -96,6 +110,7 @@ async function bootApp() {
   try {
     if (!window.L) throw new Error('지도 라이브러리를 불러오지 못했습니다.');
     viewerMap = createMap(document.getElementById('gisMap'));
+    viewerMap.on('zoomend', arrangeViewerLabels);
     viewerMap.createPane('viewerBan').style.zIndex = 410;
     viewerMap.createPane('viewerTong').style.zIndex = 411;
     viewerMap.attributionControl.addAttribution('경계: <a href="https://github.com/vuski/admdongkor">SGIS · vuski/admdongkor · CC BY 4.0</a>');
