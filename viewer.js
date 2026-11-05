@@ -35,7 +35,9 @@ function renderViewer(data, boundary, title) {
     var polygon = L.geoJSON(geometry, { style: { color: 'hsl(' + Number(number) * 47 % 360 + ',62%,34%)', fillOpacity: 0.3, weight: 2 } }).addTo(group);
     var tooltip = document.createElement('span');
     tooltip.textContent = label;
-    polygon.bindTooltip(tooltip, { permanent: true, direction: 'center' });
+    var center = shapeLabelPoint(shape.rings, shape.labelPoint);
+    L.circleMarker([center[1], center[0]], { radius: 0, opacity: 0, fillOpacity: 0, interactive: false })
+      .bindTooltip(tooltip, { permanent: true, direction: 'center' }).addTo(group);
     var button = document.createElement('button');
     button.textContent = label;
     button.addEventListener('click', function () {

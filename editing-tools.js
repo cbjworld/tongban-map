@@ -1,6 +1,14 @@
 var editHistory = [];
 var editPosition = -1;
 var applyingEdit = false;
+var labelsMovable = false;
+var inspectionLayer = null;
+var comparisonLayer = null;
+function clearEditingOverlays() {
+  if (inspectionLayer) inspectionLayer.remove();
+  if (comparisonLayer) comparisonLayer.remove();
+  inspectionLayer = comparisonLayer = null;
+}
 function editSnapshot() {
   return JSON.stringify({ shapes: tongShapes, boundary: boundaryFeature, ring: boundaryRing,
     unit: unitType, name: document.getElementById('dongNameInput').value });
@@ -10,6 +18,7 @@ function updateHistoryButtons() {
   document.getElementById('historyRedo').disabled = editPosition >= editHistory.length - 1;
 }
 function resetEditHistory() {
+  clearEditingOverlays();
   editHistory = [editSnapshot()];
   editPosition = 0;
   document.getElementById('editingStatus').textContent = '';
@@ -19,6 +28,7 @@ function recordEdit() {
   if (applyingEdit || !workReady || workBlocked) return;
   var snapshot = editSnapshot();
   if (snapshot === editHistory[editPosition]) return;
+  clearEditingOverlays();
   editHistory = editHistory.slice(0, editPosition + 1);
   editHistory.push(snapshot);
   var size = editHistory.reduce(function (total, item) { return total + item.length * 2; }, 0);
@@ -39,6 +49,7 @@ function moveEditHistory(direction) {
     return;
   }
   var saved = JSON.parse(editHistory[next]);
+  clearEditingOverlays();
   applyingEdit = true;
   try {
     if (editingTarget) stopVertexEdit();
@@ -55,7 +66,7 @@ function moveEditHistory(direction) {
     status.textContent = direction < 0 ? '실행 취소됨' : '다시 실행됨';
   } finally { applyingEdit = false; updateHistoryButtons(); }
 }
-function inspectMapGeometry(shapes) {
+function inspectMapGeometry(shapes, locations) {
   var problems = [];
   function geometry(rings) {
     if (!rings.length) return null;
@@ -71,7 +82,10 @@ function inspectMapGeometry(shapes) {
       entries.slice(index + 1).forEach(function (other) {
         if (!turf.booleanIntersects(entry.feature, other.feature)) return;
         var intersection = turf.intersect(turf.featureCollection([entry.feature, other.feature]));
-        if (intersection && turf.area(intersection) > 0.01) problems.push(entry.label + ' / ' + other.label + ' 겹침');
+        if (intersection && turf.area(intersection) > 0.01) {
+          problems.push(entry.label + ' / ' + other.label + ' 겹침');
+          if (locations) locations.push({ feature: intersection, label: '겹침', color: '#d23b33' });
+        }
       });
     });
   }
@@ -90,13 +104,27 @@ function inspectMapGeometry(shapes) {
           if (!child) { problems.push(childLabel + ' 경계 없음'); return; }
           children.push({ label: childLabel, feature: child });
           var outside = turf.difference(turf.featureCollection([child, parent]));
-          if (outside && turf.area(outside) > 0.01) problems.push(childLabel + ' 상위 구역 밖');
+          if (outside && turf.area(outside) > 0.01) {
+            problems.push(childLabel + ' 상위 구역 밖');
+            if (locations) locations.push({ feature: outside, label: childLabel + ' 상위 구역 밖', color: '#d23b33' });
+          }
         } catch (error) { problems.push(childLabel + ' 검사 실패 · 경계 형식을 확인하세요'); }
       });
       overlaps(children);
     } catch (error) { problems.push(label + ' 검사 실패 · 자기 교차 또는 경계 형식을 확인하세요'); }
   });
   try { overlaps(parents); } catch (error) { problems.push('구역 간 겹침 검사 실패'); }
+  if (locations && parents.length && (boundaryFeature || boundaryRing)) {
+    try {
+      var boundary = boundaryFeature || turf.polygon([boundaryRing]);
+      var combined = parents.length === 1 ? parents[0].feature : turf.union(turf.featureCollection(parents.map(function (entry) { return entry.feature; })));
+      var gap = turf.difference(turf.featureCollection([boundary, combined]));
+      if (gap && turf.area(gap) > 0.01) {
+        locations.push({ feature: gap, label: '미지정 영역', color: '#e99500' });
+        problems.push('미지정 영역 있음');
+      }
+    } catch (error) { problems.push('미지정 영역 검사 실패'); }
+  }
   return problems;
 }
 document.getElementById('historyUndo').addEventListener('click', function () { moveEditHistory(-1); });
@@ -104,7 +132,46 @@ document.getElementById('historyRedo').addEventListener('click', function () { m
 document.getElementById('checkGeometry').addEventListener('click', function () {
   var status = document.getElementById('editingStatus');
   if (!workReady) return;
+  if (inspectionLayer) { clearEditingOverlays(); status.textContent = ''; return; }
   if (!Object.keys(tongShapes).length) { status.textContent = '검사할 구역이 없습니다.'; return; }
-  var problems = inspectMapGeometry(tongShapes);
+  clearEditingOverlays();
+  var locations = [];
+  var problems = inspectMapGeometry(tongShapes, locations);
+  inspectionLayer = L.featureGroup().addTo(oMap);
+  locations.forEach(function (item) {
+    L.geoJSON(item.feature, { style: { color: item.color, weight: 2, fillOpacity: 0.35 } }).bindTooltip(item.label).addTo(inspectionLayer);
+  });
   status.textContent = problems.length ? problems.join(' · ') : '겹침·상위 구역 이탈·자기 교차 없음 (공식 경계 정확도 검증 아님)';
+});
+document.getElementById('compareEdits').addEventListener('click', function () {
+  if (comparisonLayer) { clearEditingOverlays(); document.getElementById('editingStatus').textContent = ''; return; }
+  clearEditingOverlays();
+  var status = document.getElementById('editingStatus');
+  if (isDrawing || editPosition <= 0) { status.textContent = '비교할 이전 변경이 없습니다. 그리기를 먼저 완료하세요.'; return; }
+  var previous = JSON.parse(editHistory[editPosition - 1]).shapes;
+  comparisonLayer = L.featureGroup().addTo(oMap);
+  function flatten(shapes) {
+    var result = {};
+    Object.keys(shapes).forEach(function (number) {
+      result['unit:' + number] = shapes[number].rings;
+      Object.keys(shapes[number].banShapes || {}).forEach(function (ban) { result['ban:' + number + ':' + ban] = shapes[number].banShapes[ban].rings; });
+    });
+    return result;
+  }
+  var before = flatten(previous), current = flatten(tongShapes);
+  [before, current].forEach(function (shapes, index) {
+    Object.keys(shapes).forEach(function (key) {
+      if (before[key] && current[key] && JSON.stringify(before[key]) === JSON.stringify(current[key])) return;
+      L.geoJSON({ type: 'MultiPolygon', coordinates: shapes[key].map(function (ring) { return [ring]; }) },
+        { style: { color: index ? '#168454' : '#d43d38', weight: 3, fillOpacity: 0.12, dashArray: index ? null : '6 4' }, interactive: false }).addTo(comparisonLayer);
+    });
+  });
+  status.textContent = comparisonLayer.getLayers().length ? '빨강 점선: 이전 · 초록: 현재' : '이전 변경에 경계 차이가 없습니다.';
+});
+document.getElementById('moveLabels').addEventListener('click', function () {
+  if (isDrawing || editingTarget || isPickingParcel) { document.getElementById('editingStatus').textContent = '그리기와 점 편집을 먼저 종료하세요.'; return; }
+  labelsMovable = !labelsMovable;
+  this.setAttribute('aria-pressed', String(labelsMovable));
+  renderAll();
+  document.getElementById('editingStatus').textContent = labelsMovable ? '통·리 라벨을 구역 안에서 끌어 옮기세요.' : '';
 });

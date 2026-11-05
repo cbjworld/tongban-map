@@ -32,7 +32,7 @@ function mapPolyline(options) {
 
 function mapLabel(options) {
   return L.marker(options.position, {
-    interactive: false, keyboard: false, zIndexOffset: options.zIndex || 0,
+    interactive: !!options.draggable, draggable: !!options.draggable, keyboard: false, zIndexOffset: options.zIndex || 0,
     icon: L.divIcon({ html: options.content, className: '', iconSize: [0, 0], iconAnchor: [0, 0] })
   });
 }

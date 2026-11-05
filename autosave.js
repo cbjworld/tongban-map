@@ -3,6 +3,20 @@ var workRaw = null;
 var workContent = '';
 var workTimer;
 var workBlocked = false;
+function updateBackupNotice(changed) {
+  if (!activeRegion) return;
+  try {
+    var key = workPrefix + 'backup:' + activeRegion.code;
+    var started = Number(localStorage.getItem(key));
+    if (!started && changed) { started = Date.now(); localStorage.setItem(key, String(started)); }
+    document.getElementById('backupStatus').textContent = started && Date.now() - started >= 7 * 86400000 ? '작업을 JSON으로 백업해 주세요.' : '';
+  } catch (error) { document.getElementById('backupStatus').textContent = 'JSON 백업을 권장합니다.'; }
+}
+function noteWorkBackup() {
+  if (!activeRegion) return;
+  try { localStorage.setItem(workPrefix + 'backup:' + activeRegion.code, String(Date.now())); } catch (error) { return; }
+  updateBackupNotice(false);
+}
 function workStatus(message) { document.getElementById('workStatus').textContent = message; }
 function workSnapshot() {
   return JSON.stringify({ version: 1, data: buildTongJsonObject(), draft: isDrawing ? {
@@ -23,6 +37,7 @@ function saveLocalWork() {
       localStorage.setItem(key, content);
       workRaw = content;
       workContent = content;
+      updateBackupNotice(true);
     }
     localStorage.setItem(workPrefix + 'last', activeRegion.code);
     workStatus('이 브라우저에 저장됨');
@@ -75,6 +90,7 @@ function restoreLocalWork() {
     workStatus('자동 복구 실패: ' + error.message + ' · 기존 저장본 유지');
   }
   workReady = true;
+  updateBackupNotice(false);
   if (typeof resetEditHistory === 'function') resetEditHistory();
 }
 document.getElementById('panel').addEventListener('input', scheduleLocalWork);

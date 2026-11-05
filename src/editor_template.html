@@ -152,6 +152,7 @@
   <a href="index.html">지도 보기</a>
   </header>
   <div class="editingTools"><div class="row"><button id="historyUndo" disabled>실행 취소</button><button id="historyRedo" disabled>다시 실행</button><button id="checkGeometry">경계 검사</button></div>
+  <div class="row"><button id="compareEdits" type="button">이전 변경 비교</button><button id="moveLabels" type="button" aria-pressed="false">라벨 이동</button></div>
   <div id="editingStatus" class="status" role="status" aria-live="polite"></div>
   </div>
   <details open id="regionTools"><summary>지역 선택</summary>
@@ -259,6 +260,7 @@
 
   </section>
   <footer class="saveBar" aria-label="JSON 저장">
+    <div id="backupStatus" class="status" role="status"></div>
   <div id="workStatus" role="status" style="font-size:12px;margin-bottom:8px">자동 저장 준비 중…</div>
   <div class="row">
     <button id="exportTongBtn" class="primary" data-unit-text="{unit}·반 저장">통·반 저장</button>
@@ -749,13 +751,27 @@ function renderAll() {
     });
     tongPolygons.push(polygon);
 
-    var center = ringCenter(shape.rings[0]);
+    var center = shapeLabelPoint(shape.rings, shape.labelPoint);
     var label = mapLabel({
       position: L.latLng(center[1], center[0]),
       content: '<div class="tong-label">' + escapeHtml(unitName(tongNum)) + '</div>',
+      draggable: typeof labelsMovable !== 'undefined' && labelsMovable,
       zIndex: 5
     });
     label.addTo(oMap);
+    if (typeof labelsMovable !== 'undefined' && labelsMovable) {
+      label.on('dragend', function () {
+        var position = label.getLatLng();
+        var point = [position.lng, position.lat];
+        if (!shape.rings.some(function (ring) { return turf.booleanPointInPolygon(turf.point(point), turf.polygon([ring])); })) {
+          label.setLatLng([center[1], center[0]]);
+          document.getElementById('editingStatus').textContent = '라벨은 해당 구역 안에 놓아주세요.';
+          return;
+        }
+        shape.labelPoint = point;
+        renderAll();
+      });
+    }
     tongLabels.push(label);
 
     if (shape.banShapes) {
@@ -771,7 +787,7 @@ function renderAll() {
         });
         banPolygons.push(banPolygon);
 
-        var banCenter = ringCenter(banShape.rings[0]);
+        var banCenter = shapeLabelPoint(banShape.rings);
         var banLabel = mapLabel({
           position: L.latLng(banCenter[1], banCenter[0]),
           content: '<div class="ban-label">' + tongNum + '-' + banNum + '반</div>',
@@ -814,7 +830,7 @@ function refreshShapeList() {
     goTo.className = 'act';
     goTo.textContent = '이동';
     goTo.addEventListener('click', function () {
-      var c = ringCenter(shape.rings[0]);
+      var c = shapeLabelPoint(shape.rings, shape.labelPoint);
       oMap.panTo(L.latLng(c[1], c[0]));
       oMap.setZoom(17);
     });
@@ -842,7 +858,7 @@ function refreshShapeList() {
         bGoTo.className = 'act';
         bGoTo.textContent = '이동';
         bGoTo.addEventListener('click', function () {
-          var c = ringCenter(banShape.rings[0]);
+          var c = shapeLabelPoint(banShape.rings);
           oMap.panTo(L.latLng(c[1], c[0]));
           oMap.setZoom(18);
         });
@@ -1542,7 +1558,7 @@ function buildTongJsonObject() {
     var shape = tongShapes[tongNum];
     var lngs = [], lats = [];
     shape.rings.forEach(function (ring) { ring.forEach(function (p) { lngs.push(p[0]); lats.push(p[1]); }); });
-    var center = ringCenter(shape.rings[0]);
+    var center = shapeLabelPoint(shape.rings, shape.labelPoint);
     var banCoordData = {};
 
     if (shape.banShapes) {
@@ -1559,6 +1575,7 @@ function buildTongJsonObject() {
       COT_THEME_SUB_ID: 1,
       COT_TEL_NO: '',
       COT_VALUE_01: center[1] + '｜' + center[0],
+      LABEL_COORD: shape.labelPoint || null,
       COT_MBR_MIN_X: lngs.reduce(function (min, value) { return Math.min(min, value); }, Infinity),
       COT_MBR_MAX_X: lngs.reduce(function (max, value) { return Math.max(max, value); }, -Infinity),
       COT_MBR_MIN_Y: lats.reduce(function (min, value) { return Math.min(min, value); }, Infinity),
@@ -1576,6 +1593,7 @@ function buildTongJsonObject() {
 function exportTongJson() {
   var data = buildTongJsonObject();
   downloadJson(data, data.head.DONG_NAME + '_' + unitType + '.json');
+  if (typeof noteWorkBackup === 'function') noteWorkBackup();
 }
 
 function exportBoundaryJson() {

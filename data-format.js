@@ -3,6 +3,15 @@ function requireNumber(value, label) {
   return Number(value);
 }
 
+function shapeLabelPoint(rings, manual) {
+  if (manual && rings.some(function (ring) { return turf.booleanPointInPolygon(turf.point(manual), turf.polygon([ring])); })) return manual;
+  var largest = rings.map(function (ring) { return turf.polygon([ring]); }).reduce(function (best, polygon) {
+    return !best || turf.area(polygon) > turf.area(best) ? polygon : best;
+  }, null);
+  if (!largest) throw new Error('라벨을 표시할 경계가 없습니다.');
+  return turf.pointOnFeature(largest).geometry.coordinates;
+}
+
 function csvCell(value) {
   var text = value == null ? '' : String(value);
   if (/^\s*[=+@-]/.test(text)) text = "'" + text;
@@ -68,8 +77,11 @@ function parseMapData(data) {
       banShapes[ban] = { rings: validateRings(coordinates[key]) };
       if (!bans.includes(ban)) bans.push(ban);
     });
+    var labelPoint = item.LABEL_COORD;
+    if (labelPoint != null && (!Array.isArray(labelPoint) || labelPoint.length !== 2 ||
+        !labelPoint.every(Number.isFinite) || Math.abs(labelPoint[0]) > 180 || Math.abs(labelPoint[1]) > 90)) throw new Error('라벨 좌표가 올바르지 않습니다.');
     shapes[number] = { rings: validateRings(item.COT_COORD_DATA[0]), bans: bans, banShapes: banShapes,
-      name: requireText(item.UNIT_NAME || '', '통/리 이름', 100) };
+      name: requireText(item.UNIT_NAME || '', '통/리 이름', 100), labelPoint: labelPoint || null };
   });
   return { head: data.head, shapes: shapes };
 }
